@@ -5,6 +5,7 @@ require_once 'lib/TwoFactorAuthException.php';
 require_once 'lib/Providers/Qr/IQRCodeProvider.php';
 require_once 'lib/Providers/Qr/BaseHTTPQRCodeProvider.php';
 require_once 'lib/Providers/Qr/GoogleQRCodeProvider.php';
+require_once 'lib/Providers/Qr/QRException.php';
 
 require_once 'lib/Providers/Rng/IRNGProvider.php';
 require_once 'lib/Providers/Rng/RNGException.php';
@@ -12,10 +13,18 @@ require_once 'lib/Providers/Rng/CSRNGProvider.php';
 require_once 'lib/Providers/Rng/MCryptRNGProvider.php';
 require_once 'lib/Providers/Rng/OpenSSLRNGProvider.php';
 require_once 'lib/Providers/Rng/HashRNGProvider.php';
+require_once 'lib/Providers/Rng/RNGException.php';
+
+require_once 'lib/Providers/Time/ITimeProvider.php';
+require_once 'lib/Providers/Time/LocalMachineTimeProvider.php';
+require_once 'lib/Providers/Time/HttpTimeProvider.php';
+require_once 'lib/Providers/Time/ConvertUnixTimeDotComTimeProvider.php';
+require_once 'lib/Providers/Time/TimeException.php';
 
 use RobThree\Auth\TwoFactorAuth;
 use RobThree\Auth\Providers\Qr\IQRCodeProvider;
 use RobThree\Auth\Providers\Rng\IRNGProvider;
+use RobThree\Auth\Providers\Time\ITimeProvider;
 
 
 class TwoFactorAuthTest extends PHPUnit_Framework_TestCase
@@ -42,22 +51,6 @@ class TwoFactorAuthTest extends PHPUnit_Framework_TestCase
     public function testConstructorThrowsOnInvalidAlgorithm() {
 
         new TwoFactorAuth('Test', 6, 30, 'xxx');
-    }
-
-    /**
-     * @expectedException \RobThree\Auth\TwoFactorAuthException
-     */
-    public function testConstructorThrowsOnQrProviderNotImplementingInterface() {
-
-        new TwoFactorAuth('Test', 6, 30, 'sha1', new stdClass());
-    }
-
-    /**
-     * @expectedException \RobThree\Auth\TwoFactorAuthException
-     */
-    public function testConstructorThrowsOnRngProviderNotImplementingInterface() {
-
-        new TwoFactorAuth('Test', 6, 30, 'sha1', null, new stdClass());
     }
 
     public function testGetCodeReturnsCorrectResults() {
@@ -103,24 +96,58 @@ class TwoFactorAuthTest extends PHPUnit_Framework_TestCase
         $this->assertEquals('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRSTUVWXYZ234567A', $tfa->createSecret(321));
     }
 
+    public function testEnsureCorrectTimeDoesNotThrowForCorrectTime() {
+        $tpr1 = new TestTimeProvider(123);
+        $tpr2 = new TestTimeProvider(128);
+
+        $tfa = new TwoFactorAuth('Test', 6, 30, 'sha1', null, null, $tpr1);
+        $tfa->ensureCorrectTime(array($tpr2));   // 128 - 123 = 5 => within default leniency
+    }
+
+    /**
+     * @expectedException \RobThree\Auth\TwoFactorAuthException
+     */
+    public function testEnsureCorrectTimeThrowsOnIncorrectTime() {
+        $tpr1 = new TestTimeProvider(123);
+        $tpr2 = new TestTimeProvider(124);
+
+        $tfa = new TwoFactorAuth('Test', 6, 30, 'sha1', null, null, $tpr1);
+        $tfa->ensureCorrectTime(array($tpr2), 0);    // We force a leniency of 0, 124-123 = 1 so this should throw
+    }
+
+
+    public function testEnsureDefaultTimeProviderReturnsCorrectTime() {
+        $tfa = new TwoFactorAuth('Test', 6, 30, 'sha1');
+        $tfa->ensureCorrectTime(array(new TestTimeProvider(time())), 1);    // Use a leniency of 1, should the time change between both time() calls
+    }
+
+    public function testEnsureAllTimeProvidersReturnCorrectTime() {
+        $tfa = new TwoFactorAuth('Test', 6, 30, 'sha1');
+        $tfa->ensureCorrectTime(array(
+            new RobThree\Auth\Providers\Time\ConvertUnixTimeDotComTimeProvider(),
+            new RobThree\Auth\Providers\Time\HttpTimeProvider(),                        // Uses google.com by default
+            new RobThree\Auth\Providers\Time\HttpTimeProvider('https://github.com'),
+            new RobThree\Auth\Providers\Time\HttpTimeProvider('https://yahoo.com'),
+        ));
+    }
 
     public function testVerifyCodeWorksCorrectly() {
 
         $tfa = new TwoFactorAuth('Test', 6, 30);
         $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847190));
-        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 0, 1426847190 + 29));    //Test discrepancy
-        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 0, 1426847190 + 30));    //Test discrepancy
-        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 0, 1426847190 - 1));    //Test discrepancy
+        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 0, 1426847190 + 29));	//Test discrepancy
+        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 0, 1426847190 + 30));	//Test discrepancy
+        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 0, 1426847190 - 1));	//Test discrepancy
 
-        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 + 0));    //Test discrepancy
-        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 + 35));    //Test discrepancy
-        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 - 35));    //Test discrepancy
+        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 + 0));	//Test discrepancy
+        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 + 35));	//Test discrepancy
+        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 - 35));	//Test discrepancy
 
-        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 + 65));    //Test discrepancy
-        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 - 65));    //Test discrepancy
+        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 + 65));	//Test discrepancy
+        $this->assertEquals(false, $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 1, 1426847205 - 65));	//Test discrepancy
 
-        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 2, 1426847205 + 65));    //Test discrepancy
-        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 2, 1426847205 - 65));    //Test discrepancy
+        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 2, 1426847205 + 65));	//Test discrepancy
+        $this->assertEquals(true , $tfa->verifyCode('VMR466AB62ZBOKHE', '543160', 2, 1426847205 - 65));	//Test discrepancy
     }
 
     public function testTotpUriIsCorrect() {
@@ -338,5 +365,17 @@ class TestQrProvider implements IQRCodeProvider {
 
     public function getMimeType() {
         return 'test/test';
+    }
+}
+
+class TestTimeProvider implements ITimeProvider {
+    private $time;
+
+    function __construct($time) {
+        $this->time = $time;
+    }
+
+    public function getTime() {
+        return $this->time;
     }
 }

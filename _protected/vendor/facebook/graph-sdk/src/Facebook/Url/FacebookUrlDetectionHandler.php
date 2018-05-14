@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright 2016 Facebook, Inc.
+ * Copyright 2017 Facebook, Inc.
  *
  * You are hereby granted a non-exclusive, worldwide, royalty-free license to
  * use, copy, modify, and distribute this software in source code or binary
@@ -174,7 +174,7 @@ class FacebookUrlDetectionHandler implements UrlDetectionInterface
     {
         $elements = explode(',', $header);
         $host = $elements[count($elements) - 1];
-
+        
         return preg_match("/^([a-z\d](-*[a-z\d])*)(\.([a-z\d](-*[a-z\d])*))*$/i", $host) //valid chars check
             && 0 < strlen($host) && strlen($host) < 254 //overall length check
             && preg_match("/^[^\.]{1,63}(\.[^\.]{1,63})*$/", $host); //length of each label

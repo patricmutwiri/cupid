@@ -6,13 +6,18 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname(dirname($vendorDir));
 
 return array(
+    'phpDocumentor\\Reflection\\' => array($vendorDir . '/phpdocumentor/reflection-common/src', $vendorDir . '/phpdocumentor/type-resolver/src', $vendorDir . '/phpdocumentor/reflection-docblock/src'),
+    'Webmozart\\Assert\\' => array($vendorDir . '/webmozart/assert/src'),
+    'Symfony\\Component\\Yaml\\' => array($vendorDir . '/symfony/yaml'),
     'Stripe\\' => array($vendorDir . '/stripe/stripe-php/lib'),
     'RobThree\\Auth\\' => array($vendorDir . '/robthree/twofactorauth/lib'),
-    'PH7\\Test\\Unit\\' => array($baseDir . '/_tests/Unit'),
-    'PH7\\Framework\\' => array($baseDir . '/_protected/framework'),
+    'PH7\\Test\\' => array($baseDir . '/_tests'),
+    'MaxMind\\WebService\\' => array($vendorDir . '/maxmind/web-service-common/src/WebService'),
+    'MaxMind\\Exception\\' => array($vendorDir . '/maxmind/web-service-common/src/Exception'),
     'MaxMind\\Db\\' => array($vendorDir . '/maxmind-db/reader/src/MaxMind/Db'),
-    'MaxMind\\' => array($vendorDir . '/maxmind/web-service-common/src'),
     'GeoIp2\\' => array($vendorDir . '/geoip2/geoip2/src'),
     'Facebook\\' => array($vendorDir . '/facebook/graph-sdk/src/Facebook'),
+    'Doctrine\\Instantiator\\' => array($vendorDir . '/doctrine/instantiator/src/Doctrine/Instantiator'),
+    'DeepCopy\\' => array($vendorDir . '/myclabs/deep-copy/src/DeepCopy'),
     'Composer\\CaBundle\\' => array($vendorDir . '/composer/ca-bundle/src'),
 );
