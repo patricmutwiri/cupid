@@ -4,30 +4,29 @@
  * @desc             BBCode Markup Parser with HTML5 support.
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Parse
  * @version          0.8
  */
 
 namespace PH7\Framework\Parse;
+
 defined('PH7') or exit('Restricted access');
 
 class BbCode extends Code
 {
-
     /**
-     * @access public
      * @param string $sText
      */
     public function __construct($sText)
     {
         $this->sText = $sText;
+
         parent::__construct();
     }
 
     /**
-     * @access public
      * @return string The code parsed
      */
     public function __toString()
@@ -38,7 +37,6 @@ class BbCode extends Code
     /**
      * Run the parse methods
      *
-     * @access protected
      * @return void
      */
     protected function run()
@@ -50,7 +48,6 @@ class BbCode extends Code
     /**
      * Parse text and processing
      *
-     * @access protected
      * @return void
      */
     protected function parse()
@@ -117,5 +114,4 @@ class BbCode extends Code
         // [email=email address]email text[/email]
         $this->sText = preg_replace('/\[email=([a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+)](.+?)\[\/email]/i', '<a href="mailto:\1" title="\2">\2</a>', $this->sText);
     }
-
 }

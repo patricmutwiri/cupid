@@ -4,17 +4,18 @@
  * @desc             General Periodic Cron.
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / App / System / Core / Asset / Cron / 96H
  * @version          1.0
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
 class GeneralCoreCron extends Cron
 {
-
     public function __construct()
     {
         parent::__construct();
@@ -25,11 +26,9 @@ class GeneralCoreCron extends Cron
         echo t('The Jobs Cron is working to complete successfully!');
     }
 
-
     /**
      * Checks file permissions and tries to correct them if they are incorrect.
      *
-     * @access protected
      * @return void
      */
     protected function chmod()
@@ -40,7 +39,6 @@ class GeneralCoreCron extends Cron
 
         echo t('Chmod file... Ok!') . '<br />';
     }
-
 }
 
 // Go!

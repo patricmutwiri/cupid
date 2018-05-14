@@ -3,62 +3,63 @@
  * @title          Search Core Model Class
  * @desc           Useful methods for the Search.
  *
- * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @author         Pierre-Henry Soria <hello@ph7cms.com>
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Core / Model
- * @version        1.1
+ * @version        1.3
  */
+
 namespace PH7;
 
 use PH7\Framework\Mvc\Model\Engine\Db;
 
 class SearchCoreModel
 {
+    const ASC = 1;
+    const DESC = 2;
 
-    const
-    NAME = 'name',
-    TITLE = 'title',
-    VIEWS = 'views',
-    RATING = 'votes',
-    DOWNLOADS = 'downloads',
-    LATEST = 'joinDate',
-    LAST_ACTIVITY = 'lastActivity',
-    LAST_EDIT = 'lastEdit',
-    LAST_VISIT = 'lastVisit',
-    PENDING_APPROVAL = 'active',
-    EMAIL = 'email',
-    USERNAME = 'username',
-    FIRST_NAME = 'firstName',
-    LAST_NAME = 'lastName',
-    CREATED = 'createdDate',
-    SEND_DATE = 'sendDate',
-    ADDED_DATE = 'addedDate',
-    UPDATED = 'updatedDate',
-    IP = 'ip',
-    ASC = 1,
-    DESC = 2;
+    const NAME = 'name';
+    const TITLE = 'title';
+    const VIEWS = 'views';
+    const RATING = 'votes';
+    const DOWNLOADS = 'downloads';
+    const LATEST = 'joinDate';
+    const LAST_ACTIVITY = 'lastActivity';
+    const LAST_EDIT = 'lastEdit';
+    const LAST_VISIT = 'lastVisit';
+    const PENDING_APPROVAL = 'active';
+    const EMAIL = 'email';
+    const USERNAME = 'username';
+    const FIRST_NAME = 'firstName';
+    const LAST_NAME = 'lastName';
+    const CREATED = 'createdDate';
+    const SEND_DATE = 'sendDate';
+    const ADDED_DATE = 'addedDate';
+    const UPDATED = 'updatedDate';
+    const IP = 'ip';
 
     /**
-     * @constructor
      * Private constructor to prevent instantiation of class since it's a static class.
-     *
-     * @access private
      */
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     /**
      * Order By method.
      *
      * @param string $sColumn Table Column
-     * @param integer $iSort \PH7\SearchCoreModel::ASC OR \PH7\SearchCoreModel::DESC Default: \PH7\SearchCoreModel::ASC
-     * @param string $sAsTable The Alias Table, this prevents the ambiguous clause. Default: NULL
+     * @param int $iSort SearchCoreModel::ASC OR SearchCoreModel::DESC
+     * @param string|null $sAsTable The Alias Table, this prevents the ambiguous clause
+     *
      * @return string SQL order by query
      */
     public static function order($sColumn, $iSort = self::ASC, $sAsTable = null)
     {
-        switch ($sColumn)
-        {
+        $iSort = (int)$iSort; // Make sure it's an integer and not a digit string!
+
+        switch ($sColumn) {
             case static::NAME:
             case static::TITLE:
             case static::VIEWS:
@@ -77,9 +78,9 @@ class SearchCoreModel
             case static::SEND_DATE:
             case static::ADDED_DATE:
             case static::UPDATED:
-                $sAsTable = (!empty($sAsTable)) ? $sAsTable . '.' : '';
+                $sAsTable = !empty($sAsTable) ? $sAsTable . '.' : '';
                 $sOrderBy = $sColumn;
-            break;
+                break;
 
             default:
                 $sAsTable = ''; // No Alias because it is an SQL function
@@ -90,13 +91,12 @@ class SearchCoreModel
     }
 
     /**
-     * @access protected
-     * @param integer $iSort
+     * @param int $iSort
+     *
      * @return string
      */
-    protected static function sort($iSort)
+    private static function sort($iSort)
     {
-        return ($iSort === static::DESC) ? ' DESC ' : ' ASC ';
+        return $iSort === static::DESC ? ' DESC ' : ' ASC ';
     }
-
 }

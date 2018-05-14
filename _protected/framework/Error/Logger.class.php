@@ -4,31 +4,30 @@
  * @desc           Handler Logger Management.
  *
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7/ Framework / Error
  * @version        1.0
  */
 
 namespace PH7\Framework\Error;
+
 defined('PH7') or exit('Restricted access');
 
+use PH7\Framework\Core\Core;
 use PH7\Framework\File\File;
 
-class Logger extends \PH7\Framework\Core\Core
+class Logger extends Core
 {
+    const LOG_DIR = 'pH7log/';
+    const EXCEPT_DIR = 'except/';
+    const GZIP_DIR = 'gzip/';
 
-    const
-    LOG_DIR = 'pH7log/',
-    EXCEPT_DIR = 'except/',
-    GZIP_DIR = 'gzip/';
+    /** @var string */
+    protected $sDir;
 
-    /**
-     * @access protected Protected access for the LoggerExcept class derived from this class.
-     * @var string $sDir
-     * @var string $sFileName
-     */
-    protected $sDir, $sFileName;
+    /** @var string */
+    protected $sFileName;
 
     public function __construct()
     {
@@ -45,8 +44,8 @@ class Logger extends \PH7\Framework\Core\Core
 
     /**
      * Clone is set to private to stop cloning.
-     * @access private
      */
-    private function __clone() {}
-
+    private function __clone()
+    {
+    }
 }

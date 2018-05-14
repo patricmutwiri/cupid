@@ -3,35 +3,44 @@
  * @title          Main Controller Class
  *
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Connect / Controller
- * @version        1.0
  */
+
 namespace PH7;
 
 class MainController extends Controller
 {
+    const FB_PROVIDER = 'fb';
+    const GOOGLE_PROVIDER = 'google';
+    const TWITTER_PROVIDER = 'twitter';
+    const MICROSOFT_PROVIDER = 'microsoft';
+
+    const REDIRECTION_DELAY = 5; // In secs
 
     /**
-     * @access protected Protected access for the AdminController class derived from this class.
+     * @internal Protected access for the AdminController class derived from this class.
+     *
      * @var string $sTitle
      */
     protected $sTitle;
 
-    private $_sApi, $_sUrl;
+    /** @var string */
+    private $sApi;
 
+    /** @var string */
+    private $sUrl;
 
     public function index()
     {
         $this->sTitle = t('Welcome to Universal Login');
         $this->view->page_title = $this->sTitle;
-        $this->view->meta_description = t('Universal Login, Use the service Facebook, Twitter, Yahoo, AOL, Windows Live, Microsoft Live, Google, or other account to login on the social dating site %site_name%');
-        $this->view->meta_keywords = t('connect, login, Register, universal login, Facebook, Twitter, Yahoo, AOL, Windows Live, Microsoft Live, Google, social network, dating site, email');
+        $this->view->meta_description = t('Universal Login, Use the service Facebook, Twitter, Outlook, Microsoft, Google, or other account to login on the social dating site %site_name%');
+        $this->view->meta_keywords = t('connect, login, Register, universal login, Facebook, Twitter, Outlook, Microsoft, Google, social network, dating site, email');
         $this->view->h1_title = $this->sTitle;
 
         $this->output();
-
     }
 
     public function register()
@@ -39,23 +48,22 @@ class MainController extends Controller
         $this->view->page_title = t('You are successfully registered!');
         $this->view->h4_title = t('Loading...');
 
-        $this->design->setRedirect($this->_sUrl, null, 'success', 5);
+        $this->design->setRedirect($this->sUrl, null, null, self::REDIRECTION_DELAY);
 
         $this->manualTplInclude('waiting.inc.tpl');
         $this->output();
-
     }
 
     public function login($sApiName = '')
     {
-        $this->_sApi = $sApiName;
-        $this->_whatApi();
+        $this->sApi = $sApiName;
+        $this->whatApi();
 
         $this->sTitle = t('Signing in...');
         $this->view->page_title = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
 
-        $this->design->setRedirect($this->_sUrl);
+        $this->design->setRedirect($this->sUrl);
 
         $this->manualTplInclude('waiting.inc.tpl');
         $this->output();
@@ -73,33 +81,31 @@ class MainController extends Controller
         $this->output();
     }
 
-    private function _whatApi()
+    private function whatApi()
     {
-        switch ($this->_sApi)
-        {
-            case 'fb':
+        switch ($this->sApi) {
+            case self::FB_PROVIDER:
                 if (!$this->config->values['module.api']['facebook.enabled']) continue;
-                $this->_sUrl = new Facebook;
-            break;
+                $this->sUrl = new Facebook;
+                break;
 
-            case 'google':
+            case self::GOOGLE_PROVIDER:
                 if (!$this->config->values['module.api']['google.enabled']) continue;
-                $this->_sUrl = new Google($this->session, $this->httpRequest, $this->registry);
-            break;
+                $this->sUrl = new Google($this->session, $this->httpRequest, $this->registry);
+                break;
 
-            case 'twitter':
+            case self::TWITTER_PROVIDER:
                 if (!$this->config->values['module.api']['twitter.enabled']) continue;
-                $this->_sUrl = new Twitter;
-            break;
+                $this->sUrl = new Twitter;
+                break;
 
-            case 'microsoft':
+            case self::MICROSOFT_PROVIDER:
                 if (!$this->config->values['module.api']['microsoft.enabled']) continue;
-                $this->_sUrl = new Microsoft;
-            break;
+                $this->sUrl = new Microsoft;
+                break;
 
             default:
-                $this->displayPageNotFound(t('The %0% API is incorrect.', $this->_sApi));
+                $this->displayPageNotFound(t('The %0% API is incorrect.', $this->sApi));
         }
     }
-
 }

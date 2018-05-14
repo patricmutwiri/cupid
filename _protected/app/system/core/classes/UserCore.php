@@ -3,36 +3,61 @@
  * @title          User Core Class
  *
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Core / Class
  */
+
 namespace PH7;
 
-use
-PH7\Framework\Session\Session,
-PH7\Framework\Navigation\Browser,
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Ip\Ip,
-PH7\Framework\File\File,
-PH7\Framework\Util\Various,
-PH7\Framework\Mvc\Router\Uri,
-PH7\Framework\Url\Header,
-PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Cache\Cache;
+use PH7\Framework\Config\Config;
+use PH7\Framework\File\File;
+use PH7\Framework\Image\Image;
+use PH7\Framework\Ip\Ip;
+use PH7\Framework\Layout\Html\Design;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Model\Engine\Util\Various as VariousModel;
+use PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Mvc\Request\Http as HttpRequest;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Navigation\Browser;
+use PH7\Framework\Registry\Registry;
+use PH7\Framework\Security\Validate\Validate;
+use PH7\Framework\Session\Session;
+use PH7\Framework\Str\Str;
+use PH7\Framework\Url\Header;
+use PH7\Framework\Url\Url;
+use PH7\Framework\Util\Various;
+use stdClass;
 
 // Abstract Class
 class UserCore
 {
+    const MAX_WIDTH_AVATAR = 600;
+    const MAX_HEIGHT_AVATAR = 800;
+
+    const MAX_WIDTH_BACKGROUND_IMAGE = 600;
+    const MAX_HEIGHT_BACKGROUND_IMAGE = 800;
+
+    const AVATAR2_SIZE = 32;
+    const AVATAR3_SIZE = 64;
+    const AVATAR4_SIZE = 100;
+    const AVATAR5_SIZE = 150;
+    const AVATAR6_SIZE = 200;
+    const AVATAR7_SIZE = 400;
 
     /**
      * Users'levels.
      *
-     * @return boolean
+     * @return bool
      */
     public static function auth()
     {
         $oSession = new Session;
-        $bIsConnected = (((int)$oSession->exists('member_id')) && $oSession->get('member_ip') === Ip::get() && $oSession->get('member_http_user_agent') === (new Browser)->getUserAgent());
+        $bIsConnected = ((int)$oSession->exists('member_id')) &&
+            $oSession->get('member_ip') === Ip::get() &&
+            $oSession->get('member_http_user_agent') === (new Browser)->getUserAgent();
 
         /** Destroy the object to minimize the CPU resources **/
         unset($oSession);
@@ -43,7 +68,7 @@ class UserCore
     /**
      * Check if an admin is logged as a user.
      *
-     * @return boolean
+     * @return bool
      */
     public static function isAdminLoggedAs()
     {
@@ -55,11 +80,14 @@ class UserCore
      *
      * @param integer $iProfileId
      * @param string $sUsername
+     *
      * @return void
      */
     public function delete($iProfileId, $sUsername)
     {
-        if ($sUsername == PH7_GHOST_USERNAME) exit('You cannot delete this profile!');
+        if ($this->isGhost($sUsername)) {
+            exit('You cannot delete this profile!');
+        }
 
         $oFile = new File;
         $oFile->deleteDir(PH7_PATH_PUBLIC_DATA_SYS_MOD . 'user/avatar/' . PH7_IMG . $sUsername);
@@ -72,18 +100,22 @@ class UserCore
         (new UserCoreModel)->delete($iProfileId, $sUsername);
 
         /* Clean UserCoreModel and Avatar Cache */
-        (new Framework\Cache\Cache)->start(UserCoreModel::CACHE_GROUP, null, null)->clear()
-        ->start(Framework\Layout\Html\Design::CACHE_AVATAR_GROUP . $sUsername, null, null)->clear();
+        (new Cache)->start(UserCoreModel::CACHE_GROUP, null, null)->clear()
+            ->start(Design::CACHE_AVATAR_GROUP . $sUsername, null, null)->clear();
     }
 
     /**
      * Set the avatar file and add it to the database.
      *
-     * @param integer $iProfileId
-     * @param integer $sUsername
+     * @param int $iProfileId
+     * @param string $sUsername
      * @param string $sFile
-     * @param integer $iApproved (1 = approved 0 = pending) Default 1
-     * @return boolean TRUE if succes, FALSE if the extension is wrong.
+     * @param int $iApproved (1 = approved | 0 = pending)
+     *
+     * @return bool TRUE if success, FALSE if the extension is wrong.
+     *
+     * @throws Framework\File\Permission\PermissionException
+     * @throws \PH7\Framework\Error\CException\PH7InvalidArgumentException
      */
     public function setAvatar($iProfileId, $sUsername, $sFile, $iApproved = 1)
     {
@@ -91,11 +123,19 @@ class UserCore
          * This can cause minor errors (eg if a user sent a file that is not a photo).
          * So we hide the errors if we are not in development mode.
          */
-        if (!isDebug()) error_reporting(0);
+        if (!isDebug()) {
+            error_reporting(0);
+        }
 
-        $oAvatar1 = new Framework\Image\Image($sFile, 600, 800);
+        $oAvatar1 = new Image(
+            $sFile,
+            self::MAX_WIDTH_AVATAR,
+            self::MAX_HEIGHT_AVATAR
+        );
 
-        if (!$oAvatar1->validate()) return false; // File type incompatible.
+        if (!$oAvatar1->validate()) {
+            return false; // File type incompatible!
+        }
 
         // We removes the old avatar if it exists and we delete the cache at the same time.
         $this->deleteAvatar($iProfileId, $sUsername);
@@ -106,12 +146,12 @@ class UserCore
         $oAvatar5 = clone $oAvatar1;
         $oAvatar6 = clone $oAvatar1;
         $oAvatar7 = clone $oAvatar1;
-        $oAvatar2->square(32);
-        $oAvatar3->square(64);
-        $oAvatar4->square(100);
-        $oAvatar5->square(150);
-        $oAvatar6->square(200);
-        $oAvatar7->resize(400);
+        $oAvatar2->square(self::AVATAR2_SIZE);
+        $oAvatar3->square(self::AVATAR3_SIZE);
+        $oAvatar4->square(self::AVATAR4_SIZE);
+        $oAvatar5->square(self::AVATAR5_SIZE);
+        $oAvatar6->square(self::AVATAR6_SIZE);
+        $oAvatar7->resize(self::AVATAR7_SIZE);
 
         /* Set watermark text on large avatars */
         $sWatermarkText = DbConfig::getSetting('watermarkTextImage');
@@ -124,15 +164,15 @@ class UserCore
         $sPath = PH7_PATH_PUBLIC_DATA_SYS_MOD . 'user/avatar/img/' . $sUsername . PH7_SH;
         (new File)->createDir($sPath);
 
-        $sFileName = Various::genRnd($oAvatar1->getFileName(), 1);
+        $sFileName = Various::genRnd($oAvatar1->getFileName(), 1); // Avatar filename is always 1 char-length
 
-        $sFile1 = $sFileName . '.' . $oAvatar1->getExt();  // Original, four characters
-        $sFile2 = $sFileName . '-32.' . $oAvatar2->getExt();
-        $sFile3 = $sFileName . '-64.' . $oAvatar3->getExt();
-        $sFile4 = $sFileName . '-100.' . $oAvatar4->getExt();
-        $sFile5 = $sFileName . '-150.' . $oAvatar5->getExt();
-        $sFile6 = $sFileName . '-200.' . $oAvatar6->getExt();
-        $sFile7 = $sFileName . '-400.' . $oAvatar7->getExt();
+        $sFile1 = $sFileName . PH7_DOT . $oAvatar1->getExt();  // Original, four characters
+        $sFile2 = $sFileName . '-' . self::AVATAR2_SIZE . PH7_DOT . $oAvatar2->getExt();
+        $sFile3 = $sFileName . '-' . self::AVATAR3_SIZE . PH7_DOT . $oAvatar3->getExt();
+        $sFile4 = $sFileName . '-' . self::AVATAR4_SIZE . PH7_DOT . $oAvatar4->getExt();
+        $sFile5 = $sFileName . '-' . self::AVATAR5_SIZE . PH7_DOT . $oAvatar5->getExt();
+        $sFile6 = $sFileName . '-' . self::AVATAR6_SIZE . PH7_DOT . $oAvatar6->getExt();
+        $sFile7 = $sFileName . '-' . self::AVATAR7_SIZE . PH7_DOT . $oAvatar7->getExt();
 
         // Add the avatar
         (new UserCoreModel)->setAvatar($iProfileId, $sFile1, $iApproved);
@@ -156,6 +196,7 @@ class UserCore
      *
      * @param integer $iProfileId
      * @param string $sUsername
+     *
      * @return void
      */
     public function deleteAvatar($iProfileId, $sUsername)
@@ -172,12 +213,12 @@ class UserCore
         /** Array to the new format (>= PHP5.4) **/
         $aFiles = [
             $sPath . $sFile,
-            $sPath . str_replace($sExt, '-32' . $sExt, $sFile),
-            $sPath . str_replace($sExt, '-64' . $sExt, $sFile),
-            $sPath . str_replace($sExt, '-100' . $sExt, $sFile),
-            $sPath . str_replace($sExt, '-150' . $sExt, $sFile),
-            $sPath . str_replace($sExt, '-200' . $sExt, $sFile),
-            $sPath . str_replace($sExt, '-400' . $sExt, $sFile),
+            $sPath . str_replace($sExt, '-' . self::AVATAR2_SIZE . $sExt, $sFile),
+            $sPath . str_replace($sExt, '-' . self::AVATAR3_SIZE . $sExt, $sFile),
+            $sPath . str_replace($sExt, '-' . self::AVATAR4_SIZE . $sExt, $sFile),
+            $sPath . str_replace($sExt, '-' . self::AVATAR5_SIZE . $sExt, $sFile),
+            $sPath . str_replace($sExt, '-' . self::AVATAR6_SIZE . $sExt, $sFile),
+            $sPath . str_replace($sExt, '-' . self::AVATAR7_SIZE . $sExt, $sFile),
         ];
 
         $oFile->deleteFile($aFiles);
@@ -186,8 +227,8 @@ class UserCore
         (new UserCoreModel)->deleteAvatar($iProfileId);
 
         /* Clean User Avatar Cache */
-        (new Framework\Cache\Cache)->start(Framework\Layout\Html\Design::CACHE_AVATAR_GROUP . $sUsername, null, null)->clear()
-        ->start(UserCoreModel::CACHE_GROUP, 'avatar' . $iProfileId, null)->clear();
+        (new Cache)->start(Design::CACHE_AVATAR_GROUP . $sUsername, null, null)->clear()
+            ->start(UserCoreModel::CACHE_GROUP, 'avatar' . $iProfileId, null)->clear();
     }
 
     /**
@@ -196,8 +237,11 @@ class UserCore
      * @param integer $iProfileId
      * @param string $sUsername
      * @param string $sFile
-     * @param integer $iApproved (1 = approved 0 = pending) Default 1
-     * @return boolean TRUE if succes, FALSE if the extension is wrong.
+     * @param int $iApproved (1 = approved | 0 = pending)
+     *
+     * @return bool TRUE if success, FALSE if the extension is wrong.
+     *
+     * @throws Framework\File\Permission\PermissionException
      */
     public function setBackground($iProfileId, $sUsername, $sFile, $iApproved = 1)
     {
@@ -205,11 +249,19 @@ class UserCore
          * This can cause minor errors (eg if a user sent a file that is not a photo).
          * So we hide the errors if we are not in development mode.
          */
-        if (!isDebug()) error_reporting(0);
+        if (!isDebug()) {
+            error_reporting(0);
+        }
 
-        $oWallpaper = new Framework\Image\Image($sFile, 600, 800);
+        $oWallpaper = new Image(
+            $sFile,
+            self::MAX_WIDTH_BACKGROUND_IMAGE,
+            self::MAX_HEIGHT_BACKGROUND_IMAGE
+        );
 
-        if (!$oWallpaper->validate()) return false;
+        if (!$oWallpaper->validate()) {
+            return false;
+        }
 
         // We removes the old background if it exists and we delete the cache at the same time.
         $this->deleteBackground($iProfileId, $sUsername);
@@ -219,46 +271,53 @@ class UserCore
         (new File)->createDir($sPath);
 
         $sFileName = Various::genRnd($oWallpaper->getFileName(), 1);
-        $sFile = $sFileName . '.' . $oWallpaper->getExt();
+        $sFile = $sFileName . PH7_DOT . $oWallpaper->getExt();
 
         // Add the profile background
         (new UserCoreModel)->addBackground($iProfileId, $sFile, $iApproved);
 
-         // Saved the new background
-         $oWallpaper->save($sPath . $sFile);
+        // Saved the new background
+        $oWallpaper->save($sPath . $sFile);
 
-         unset($oWallpaper);
+        unset($oWallpaper);
 
-         return true;
+        return true;
     }
 
     /**
      * @param integer $iProfileId
      * @param string $sUsername
+     *
      * @return void
      */
     public function deleteBackground($iProfileId, $sUsername)
     {
-         // We start to delete the file before the data in the database if we could not delete the file since we would have lost the link to the file found in the database.
+        // We start to delete the file before the data in the database if we could not delete the file since we would have lost the link to the file found in the database.
         $sFile = (new UserCoreModel)->getBackground($iProfileId, null);
 
         (new File)->deleteFile(PH7_PATH_PUBLIC_DATA_SYS_MOD . 'user/background/img/' . $sUsername . PH7_SH . $sFile);
         (new UserCoreModel)->deleteBackground($iProfileId);
 
         /* Clean User Background Cache */
-        (new Framework\Cache\Cache)->start(UserCoreModel::CACHE_GROUP, 'background' . $iProfileId, null)->clear();
+        (new Cache)->start(
+            UserCoreModel::CACHE_GROUP,
+            'background' . $iProfileId,
+            null
+        )->clear();
     }
 
     /**
      * Get the Profile Link.
      *
      * @param string $sUsername
+     *
      * @return string The Absolute Profile Link
      */
     public function getProfileLink($sUsername)
     {
-        $sUsername = (new Framework\Str\Str)->lower($sUsername);
+        $sUsername = (new Str)->lower($sUsername);
         //return (strlen($sUsername) >1) ? PH7_URL_ROOT . $sUsername . PH7_PAGE_EXT : '#';
+
         return PH7_URL_ROOT . $sUsername . PH7_PAGE_EXT;
     }
 
@@ -268,44 +327,56 @@ class UserCore
      * @param string $sUsername
      * @param string $sFirstName
      * @param string $sSex
+     *
      * @return string The link
+     *
+     * @throws Framework\File\Exception
      */
     public function getProfileSignupLink($sUsername, $sFirstName, $sSex)
     {
-        if (!self::auth() && !AdminCore::auth())
-        {
+        if (!self::auth() && !AdminCore::auth()) {
             $aHttpParams = [
-                'ref' => (new Framework\Mvc\Request\Http)->currentController(),
-                'a' => Framework\Registry\Registry::getInstance()->action,
+                'ref' => (new HttpRequest)->currentController(),
+                'a' => Registry::getInstance()->action,
                 'u' => $sUsername,
                 'f_n' => $sFirstName,
                 's' => $sSex
             ];
 
-            $sLink = Uri::get('user','signup','step1', '?' . Framework\Url\Url::httpBuildQuery($aHttpParams), false);
-        }
-        else
-        {
+            $sLink = Uri::get(
+                'user',
+                'signup',
+                'step1',
+                '?' . Url::httpBuildQuery($aHttpParams),
+                false
+            );
+        } else {
             $sLink = $this->getProfileLink($sUsername);
         }
 
-       return $sLink;
+        return $sLink;
     }
 
     /**
      * Set a user authentication.
      *
-     * @param object $oUserData User database object.
-     * @param object \PH7\UserCoreModel $oUserModel
-     * @param object \PH7\Framework\Session\Session $oSession
-     * @param object \PH7\Framework\Mvc\Model\Security $oSecurityModel
+     * @param stdClass $oUserData User database object.
+     * @param UserCoreModel $oUserModel
+     * @param Session $oSession
+     * @param SecurityModel $oSecurityModel
+     *
      * @return void
      */
-    public function setAuth($oUserData, UserCoreModel $oUserModel, Session $oSession, SecurityModel $oSecurityModel)
-    {
+    public function setAuth(
+        stdClass $oUserData,
+        UserCoreModel $oUserModel,
+        Session $oSession,
+        SecurityModel $oSecurityModel
+    ) {
         // Remove the session if the user is logged on as "affiliate" or "administrator".
-        if (AffiliateCore::auth() || AdminCore::auth())
+        if (AffiliateCore::auth() || AdminCore::auth()) {
             $oSession->destroy();
+        }
 
         // Regenerate the session ID to prevent session fixation attack
         $oSession->regenerateId();
@@ -325,7 +396,12 @@ class UserCore
 
         $oSession->set($aSessionData);
 
-        $oSecurityModel->addLoginLog($oUserData->email, $oUserData->username, '*****', 'Logged in!');
+        $oSecurityModel->addLoginLog(
+            $oUserData->email,
+            $oUserData->username,
+            '*****',
+            'Logged in!'
+        );
         $oUserModel->setLastActivity($oUserData->profileId);
     }
 
@@ -335,13 +411,13 @@ class UserCore
      * @param string $sNickname
      * @param string $sFirstName
      * @param string $sLastName
+     *
      * @return string Username
      */
     public function findUsername($sNickname, $sFirstName, $sLastName)
     {
+        $iMaxLen = DbConfig::getSetting('maxUsernameLength');
         $sRnd = Various::genRnd('pH_Pierre-Henry_Soria_Sanz_González', 4); // Random String
-        $iMinLen = DbConfig::getSetting('minUsernameLength'); // Minimum Length
-        $iMaxLen = DbConfig::getSetting('maxUsernameLength'); // Maximum Length
 
         $aUsernameList = [
             $sNickname,
@@ -350,53 +426,44 @@ class UserCore
             $sNickname . $sRnd,
             $sFirstName . $sRnd,
             $sLastName . $sRnd,
-            Various::genRndWord($iMinLen, $iMaxLen),
             $sFirstName . '-' . $sLastName,
             $sLastName . '-' . $sFirstName,
             $sFirstName . '-' . $sLastName . $sRnd,
             $sLastName . '-' . $sFirstName . $sRnd
         ];
 
-        foreach($aUsernameList as $sUsername)
-        {
+        foreach ($aUsernameList as $sUsername) {
             $sUsername = substr($sUsername, 0, $iMaxLen);
 
-            if ( (new Framework\Security\Validate\Validate)->username($sUsername) )
-                break;
-            else
-                $sUsername = Various::genRnd('pOH_Pierre-Henry_Soria_Béghin_Rollier', $iMaxLen); // Default value
+            if ((new Validate)->username($sUsername)) {
+                return $sUsername;
+            }
         }
 
-        return $sUsername;
+        // If all other usernames aren't valid, return the default one below
+        return Various::genRnd('pOH_Pierre-Henry_Soria_Béghin_Rollier', $iMaxLen);
     }
 
     /**
      * Check account status of profile.
      *
-     * @param object $oDbProfileData User database object.
-     * @return mixed (boolean | string) Returns a boolean TRUE if the account status is correct, otherwise returns an error message.
+     * @param stdClass $oDbProfileData User database object.
+     *
+     * @return bool|string Returns a boolean TRUE if the account status is correct, otherwise returns an error message.
      */
-    public function checkAccountStatus($oDbProfileData)
+    public function checkAccountStatus(stdClass $oDbProfileData)
     {
         $mRet = true; // Default value
 
-        if ($oDbProfileData->active != 1)
-        {
-            if ($oDbProfileData->active == 2)
-            {
-                $mRet = t('Sorry, your account has not yet been activated. Please activate it by clicking the activation link that was emailed.');
-            }
-            elseif ($oDbProfileData->active == 3)
-            {
-                $mRet = t('Sorry, your account has not yet been activated. An administrator must validate your account.');
-            }
-            else
-            {
+        if ($oDbProfileData->active != 1) {
+            if ($oDbProfileData->active == 2) {
+                $mRet = t('Sorry, your account has not been activated yet. Please activate it by clicking the activation link that was emailed.');
+            } elseif ($oDbProfileData->active == 3) {
+                $mRet = t('Sorry, your account has not been activated yet. An administrator must validate your account.');
+            } else {
                 $mRet = t('Your account does not have a valid activation status. Please contact the database administrator so that it solves this problem.');
             }
-        }
-        elseif ($oDbProfileData->ban == 1)
-        {
+        } elseif ($oDbProfileData->ban == 1) {
             $mRet = t('Sorry, Your account has been banned.');
         }
 
@@ -408,42 +475,46 @@ class UserCore
      *
      * @param string $sEmail
      * @param string $sHash
-     * @param object \PH7\Framework\Config\Config $oConfig
-     * @param object \PH7\Framework\Registry\Registry $oRegistry
-     * @param string $sMod (user, affiliate, newsletter). Default 'user'
+     * @param Config $oConfig
+     * @param Registry $oRegistry
+     * @param string $sMod (user, affiliate, newsletter).
+     *
      * @return void
      */
-    public function activateAccount($sEmail, $sHash, Framework\Config\Config $oConfig, Framework\Registry\Registry $oRegistry, $sMod = 'user')
+    public function activateAccount($sEmail, $sHash, Config $oConfig, Registry $oRegistry, $sMod = 'user')
     {
-        $sTable = Framework\Mvc\Model\Engine\Util\Various::convertModToTable($sMod);
-        $sRedirectLoginUrl = ($sMod == 'newsletter' ? PH7_URL_ROOT : ($sMod == 'affiliate' ? Uri::get('affiliate', 'home', 'login') : Uri::get('user', 'main', 'login')));
-        $sRedirectIndexUrl = ($sMod == 'newsletter' ? PH7_URL_ROOT : ($sMod == 'affiliate' ? Uri::get('affiliate', 'home', 'index') : Uri::get('user', 'main', 'index')));
-        $sSuccessMsg = ($sMod == 'newsletter' ? t('Your subscription to our newsletters has been successfully validated!') : t('Your account has been successfully validated. You can now login!'));
+        $sTable = VariousModel::convertModToTable($sMod);
+        $sRedirectLoginUrl = ($sMod === 'newsletter' ? PH7_URL_ROOT : ($sMod === 'affiliate' ? Uri::get('affiliate', 'home', 'login') : Uri::get('user', 'main', 'login')));
+        $sRedirectIndexUrl = ($sMod === 'newsletter' ? PH7_URL_ROOT : ($sMod === 'affiliate' ? Uri::get('affiliate', 'home', 'index') : Uri::get('user', 'main', 'index')));
+        $sSuccessMsg = ($sMod === 'newsletter' ? t('Your subscription to our newsletters has been successfully validated!') : t('Your account has been successfully validated. You can now login!'));
 
-        if (isset($sEmail, $sHash))
-        {
+        if (isset($sEmail, $sHash)) {
             $oUserModel = new AffiliateCoreModel;
-            if ($oUserModel->validateAccount($sEmail, $sHash, $sTable))
-            {
+            if ($oUserModel->validateAccount($sEmail, $sHash, $sTable)) {
                 $iId = $oUserModel->getId($sEmail, null, $sTable);
-                if ($sMod != 'newsletter')
+                if ($sMod !== 'newsletter') {
                     $this->clearReadProfileCache($iId, $sTable);
+                }
 
                 /** Update the Affiliate Commission **/
                 $iAffId = $oUserModel->getAffiliatedId($iId);
                 AffiliateCore::updateJoinCom($iAffId, $oConfig, $oRegistry);
 
                 Header::redirect($sRedirectLoginUrl, $sSuccessMsg);
-            }
-            else
-            {
-                Header::redirect($sRedirectLoginUrl, t('Oops! The URL is either invalid or you already have activated your account.'), 'error');
+            } else {
+                Header::redirect(
+                    $sRedirectLoginUrl,
+                    t('Oops! The URL is either invalid or you already have activated your account.'),
+                    Design::ERROR_TYPE
+                );
             }
             unset($oUserModel);
-        }
-        else
-        {
-            Header::redirect($sRedirectIndexUrl, t('Invalid approach, please use the link that has been send to your email.'), 'error');
+        } else {
+            Header::redirect(
+                $sRedirectIndexUrl,
+                t('Invalid approach, please use the link that has been send to your email.'),
+                Design::ERROR_TYPE
+            );
         }
     }
 
@@ -451,11 +522,12 @@ class UserCore
      * Get the correct matching sex.
      *
      * @param string $sSex
+     *
      * @return string The Match Sex.
      */
     public function getMatchSex($sSex)
     {
-        return ($sSex == 'male' ? 'female' : ($sSex == 'female' ? 'male' : 'couple'));
+        return ($sSex === 'male' ? 'female' : ($sSex === 'female' ? 'male' : 'couple'));
     }
 
     /**
@@ -463,12 +535,13 @@ class UserCore
      * Clean UserCoreModel / readProfile Cache
      *
      * @param integer $iId Profile ID.
-     * @param string $sTable Default 'Members'
+     * @param string $sTable Default DbTableName::MEMBER
+     *
      * @return void
      */
-    public function clearReadProfileCache($iId, $sTable = 'Members')
+    public function clearReadProfileCache($iId, $sTable = DbTableName::MEMBER)
     {
-        $this->_clearCache('readProfile', $iId, $sTable);
+        $this->clearCache('readProfile', $iId, $sTable);
     }
 
     /**
@@ -476,12 +549,23 @@ class UserCore
      * Clean UserCoreModel / infoFields Cache
      *
      * @param integer $iId Profile ID.
-     * @param string $sTable Default 'MembersInfo'
+     * @param string $sTable Default DbTableName::MEMBER_INFO
+     *
      * @return void
      */
-    public function clearInfoFieldCache($iId, $sTable = 'MembersInfo')
+    public function clearInfoFieldCache($iId, $sTable = DbTableName::MEMBER_INFO)
     {
-        $this->_clearCache('infoFields', $iId, $sTable);
+        $this->clearCache('infoFields', $iId, $sTable);
+    }
+
+    /**
+     * @param string $sUsername
+     *
+     * @return bool
+     */
+    private function isGhost($sUsername)
+    {
+        return $sUsername === PH7_GHOST_USERNAME;
     }
 
     /**
@@ -490,20 +574,24 @@ class UserCore
      * @param string $sId Cache ID.
      * @param integer $iId User ID.
      * @param string $sTable Table name.
+     *
      * @return void
      */
-    private function _clearCache($sId, $iId, $sTable)
+    private function clearCache($sId, $iId, $sTable)
     {
-        Framework\Mvc\Model\Engine\Util\Various::checkModelTable($sTable);
+        VariousModel::checkModelTable($sTable);
 
-        (new Framework\Cache\Cache)->start(UserCoreModel::CACHE_GROUP, $sId . $iId . $sTable, null)->clear();
+        (new Cache)->start(
+            UserCoreModel::CACHE_GROUP,
+            $sId . $iId . $sTable,
+            null
+        )->clear();
     }
 
     /**
      * Clone is set to private to stop cloning.
-     * @clone
-     * @access private
      */
-    private function __clone() {}
-
+    private function __clone()
+    {
+    }
 }

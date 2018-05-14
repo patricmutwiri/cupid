@@ -4,103 +4,129 @@
  * @desc             PDO Singleton Class
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2011-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2011-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Mvc / Model / Engine
  * @version          1.6
  */
 
 namespace PH7\Framework\Mvc\Model\Engine;
+
 defined('PH7') or exit('Restricted access');
 
-use PH7\Framework\Core\Core;
+use PDO;
+use PDOStatement;
 
 /**
  * @class Singleton Class
  */
 class Db
 {
+    const REQUIRED_SQL_VERSION = 5.0;
 
-    const ASC = 'ASC', DESC = 'DESC', RAND = 'RAND()';
+    const ASC = 'ASC';
+    const DESC = 'DESC';
+    const RAND = 'RAND()';
 
-    /**
-     * Static attributes of the class.
-     * Holds an insance of self with the \PDO class.
-     *
-     * @staticvar string $_sDsn Data Source Name
-     * @staticvar string $_sUsername
-     * @staticvar string $_sPassword
-     * @staticvar string $_sPrefix
-     * @staticvar array $_aDriverOptions
-     * @staticvar integer $_iCount
-     * @staticvar float $_fTime
-     * @staticvar object $_oInstance
-     */
-    private static $_sDsn, $_sUsername, $_sPassword, $_sPrefix, $_aDriverOptions, $_iCount = 0, $_fTime = 0.0, $_oInstance = NULL, $_oDb;
+    /** @var string */
+    private static $sDsn;
+
+    /** @var string */
+    private static $sUsername;
+
+    /** @var string */
+    private static $sPassword;
+
+    /** @var string */
+    private static $sPrefix;
+
+    /** @var array */
+    private static $aDriverOptions;
+
+    /** @var int */
+    private static $iCount = 0;
+
+    /** @var float */
+    private static $fTime = 0.0;
+
+    /** @var self|null */
+    private static $oInstance = null;
+
+    /** @var PDO */
+    private static $oDb;
 
     /**
      * The constructor is set to private, so nobody can create a new instance using new.
      */
-    private function __construct() {}
+    private function __construct()
+    {
+    }
 
     /**
-     * @return object Returns the PDO instance class or create initial connection.
+     * @param string|null $sDsn
+     * @param string|null $sUsername
+     * @param string|null $sPassword
+     * @param array|null $aDriverOptions
+     * @param string|null $sPrefix
+     *
+     * @return self Returns the PDO instance class or create initial connection.
      */
-    public static function getInstance($sDsn = NULL, $sUsername = NULL, $sPassword = NULL, $aDriverOptions = NULL, $sPrefix = NULL)
+    public static function getInstance($sDsn = null, $sUsername = null, $sPassword = null, $aDriverOptions = null, $sPrefix = null)
     {
-        if(NULL === self::$_oInstance)
-        {
-            if(!empty($sDsn))
-                self::$_sDsn = $sDsn;
-
-            if(!empty($sUsername))
-                self::$_sUsername = $sUsername;
-
-            if(!empty($sPassword))
-                self::$_sPassword = $sPassword;
-
-            if(!empty($aDriverOptions))
-                self::$_aDriverOptions = $aDriverOptions;
-
-            if(!empty($sPrefix))
-                self::$_sPrefix = $sPrefix;
-
-            self::$_oInstance = new static;
-
-            try
-            {
-                self::$_oDb = new \PDO(self::$_sDsn, self::$_sUsername, self::$_sPassword, self::$_aDriverOptions);
-                self::$_oDb->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        if (self::$oInstance === null) {
+            if (!empty($sDsn)) {
+                self::$sDsn = $sDsn;
             }
-            catch (Exception $oE)
-            {
+
+            if (!empty($sUsername)) {
+                self::$sUsername = $sUsername;
+            }
+
+            if (!empty($sPassword)) {
+                self::$sPassword = $sPassword;
+            }
+
+            if (!empty($aDriverOptions)) {
+                self::$aDriverOptions = $aDriverOptions;
+            }
+
+            if (!empty($sPrefix)) {
+                self::$sPrefix = $sPrefix;
+            }
+
+            self::$oInstance = new static;
+
+            try {
+                self::$oDb = new PDO(self::$sDsn, self::$sUsername, self::$sPassword, self::$aDriverOptions);
+                self::$oDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            } catch (Exception $oE) {
                 exit('Error Establishing a Database Connection');
             }
 
             static::checkMySqlVersion();
         }
 
-        return self::$_oInstance;
+        return self::$oInstance;
     }
 
     /**
      * Initiates a transaction.
      *
-     * @return boolean
+     * @return bool
      */
     public function beginTransaction()
     {
-        return self::$_oDb->beginTransaction();
+        return self::$oDb->beginTransaction();
     }
 
     /**
      * Commits a transaction.
      *
-     * @return boolean
+     * @return bool
      */
     public function commit()
     {
-        return self::$_oDb->commit();
+        return self::$oDb->commit();
     }
 
     /**
@@ -110,7 +136,7 @@ class Db
      */
     public function errorCode()
     {
-        return self::$_oDb->errorCode();
+        return self::$oDb->errorCode();
     }
 
     /**
@@ -120,21 +146,23 @@ class Db
      */
     public function errorInfo()
     {
-        return self::$_oDb->errorInfo();
+        return self::$oDb->errorInfo();
     }
 
     /**
      * Execute an SQL statement and return the number of affected rows.
      *
      * @param string $sStatement
-     * @return mixed (boolean | integer)
+     *
+     * @return bool|int
      */
     public function exec($sStatement)
     {
         $fStartTime = microtime(true);
-        $mReturn = self::$_oDb->exec($sStatement);
-        $this->_increment();
-        $this->_addTime($fStartTime, microtime(true));
+        $mReturn = self::$oDb->exec($sStatement);
+        $this->increment();
+        $this->addTime($fStartTime, microtime(true));
+
         return $mReturn;
     }
 
@@ -142,11 +170,12 @@ class Db
      * Retrieve a database connection attribute.
      *
      * @param int $iAttribute
+     *
      * @return mixed
      */
     public function getAttribute($iAttribute)
     {
-        return self::$_oDb->getAttribute($iAttribute);
+        return self::$oDb->getAttribute($iAttribute);
     }
 
     /**
@@ -156,32 +185,35 @@ class Db
      */
     public function getAvailableDrivers()
     {
-        return self::$_oDb->getAvailableDrivers();
+        return self::$oDb->getAvailableDrivers();
     }
 
     /**
      * Returns the ID of the last inserted row or sequence value.
      *
-     * @param string $sName Name of the sequence object from which the ID should be returned. Default NULL
+     * @param string $sName Name of the sequence object from which the ID should be returned.
+     *
      * @return string
      */
     public function lastInsertId($sName = null)
     {
-        return self::$_oDb->lastInsertId($sName);
+        return self::$oDb->lastInsertId($sName);
     }
 
     /**
      * Prepares a statement for execution and returns a statement object.
      *
      * @param string $sStatement A valid SQL statement for the target database server.
+     *
      * @return PDOStatement
      */
     public function prepare($sStatement)
     {
         $fStartTime = microtime(true);
-        $bReturn = self::$_oDb->prepare($sStatement);
-        $this->_increment();
-        $this->_addTime($fStartTime, microtime(true));
+        $bReturn = self::$oDb->prepare($sStatement);
+        $this->increment();
+        $this->addTime($fStartTime, microtime(true));
+
         return $bReturn;
     }
 
@@ -189,25 +221,28 @@ class Db
      * Execute an SQL prepared with prepare() method.
      *
      * @param string $sStatement
-     * @return boolean
+     *
+     * @return bool
      */
     public function execute($sStatement)
     {
-        return self::$_oDb->execute($sStatement);
+        return self::$oDb->execute($sStatement);
     }
 
     /**
      * Executes an SQL statement, returning a result set as a PDOStatement object.
      *
      * @param string $sStatement
-     * @return mixed (object | boolean) PDOStatement object, or FALSE on failure.
+     *
+     * @return PDOStatement|bool Returns PDOStatement object, or FALSE on failure.
      */
     public function query($sStatement)
     {
         $fStartTime = microtime(true);
-        $mReturn = self::$_oDb->query($sStatement);
-        $this->_increment();
-        $this->_addTime($fStartTime, microtime(true));
+        $mReturn = self::$oDb->query($sStatement);
+        $this->increment();
+        $this->addTime($fStartTime, microtime(true));
+
         return $mReturn;
     }
 
@@ -215,67 +250,72 @@ class Db
      * Execute query and return all rows in assoc array.
      *
      * @param string $sStatement
+     *
      * @return array
      */
     public function queryFetchAllAssoc($sStatement)
     {
-        return self::$_oDb->query($sStatement)->fetchAll(PDO::FETCH_ASSOC);
+        return self::$oDb->query($sStatement)->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
      * Execute query and return one row in assoc array.
      *
      * @param string $sStatement
+     *
      * @return array
      */
     public function queryFetchRowAssoc($sStatement)
     {
-        return self::$_oDb->query($sStatement)->fetch(PDO::FETCH_ASSOC);
+        return self::$oDb->query($sStatement)->fetch(PDO::FETCH_ASSOC);
     }
 
     /**
      * Execute query and select one column only.
      *
      * @param string $sStatement
+     *
      * @return mixed
      */
     public function queryFetchColAssoc($sStatement)
     {
-        return self::$_oDb->query($sStatement)->fetchColumn();
+        return self::$oDb->query($sStatement)->fetchColumn();
     }
 
     /**
      * Quotes a string for use in a query.
      *
      * @param string $sInput
-     * @param integer $iParameterType
+     * @param int $iParameterType
+     *
      * @return string
      */
     public function quote($sInput, $iParameterType = 0)
     {
-        return self::$_oDb->quote($sInput, $iParameterType);
+        return self::$oDb->quote($sInput, $iParameterType);
     }
 
     /**
      * Rolls back a transaction.
      *
-     * @return boolean
+     * @return bool
      */
     public function rollBack()
     {
-        return self::$_oDb->rollBack();
+        return self::$oDb->rollBack();
     }
 
     /**
      * Set an attribute.
      *
-     * @param integer $iAttribute
+     * @param int $iAttribute
      * @param mixed $mValue
-     * @return boolean
+     *
+     * @return bool
      */
     public function setAttribute($iAttribute, $mValue)
     {
-        return self::$_oDb->setAttribute($iAttribute, $mValue);
+        return self::$oDb->setAttribute($iAttribute, $mValue);
     }
 
     /**
@@ -285,13 +325,13 @@ class Db
      */
     public static function queryCount()
     {
-        return self::$_iCount;
+        return self::$iCount;
     }
 
     /**
      * Show all tables.
      *
-     * @return mixed (object | boolean) PDOStatement object, or FALSE on failure.
+     * @return PDOStatement|bool Returns PDOStatement object, or FALSE on failure.
      */
     public static function showTables()
     {
@@ -305,41 +345,44 @@ class Db
      */
     public static function time()
     {
-        return self::$_fTime;
+        return self::$fTime;
     }
 
     /**
      * If table name is empty, only prefix will be returned otherwise the table name with its prefix will be returned.
      *
      * @param string $sTable Table name. Default ''
-     * @param boolean $bTrim With or without a space before and after the table name. Default valut is FALSE, so with space before and after table name.
+     * @param bool $bSpace With or without a space before and after the table name. Default value is FALSE, so with space before and after table name.
+     *
      * @return string prefixed table name, just prefix if table name is empty.
      */
-    public static function prefix($sTable = '', $bTrim = false)
+    public static function prefix($sTable = '', $bSpace = true)
     {
-        $sSpace = (!$bTrim) ? ' ' : '';
-        return ($sTable !== '') ? $sSpace . self::$_sPrefix . $sTable . $sSpace : self::$_sPrefix;
+        $sSpace = $bSpace ? ' ' : '';
+
+        return ($sTable !== '') ? $sSpace . self::$sPrefix . $sTable . $sSpace : self::$sPrefix;
     }
 
     /**
      * Free database.
      *
-     * @param object \PDOStatement $rStmt Close cursor of PDOStatement class. Default NULL
-     * @param boolean $bCloseConnection Close connection of PDO. Default FALSE
+     * @param PDOStatement $rStmt Close cursor of PDOStatement class.
+     * @param bool $bCloseConnection Close connection of PDO.
+     *
      * @return void
      */
-    public static function free(\PDOStatement &$rStmt = NULL, $bCloseConnection = FALSE)
+    public static function free(PDOStatement &$rStmt = null, $bCloseConnection = false)
     {
         // Close Cursor
-        if(NULL !== $rStmt)
-        {
+        if ($rStmt !== null) {
             $rStmt->closeCursor();
             unset($rStmt);
         }
 
         // Free instance of the PDO object
-        if(TRUE === $bCloseConnection)
-            self::$_oDb = NULL;
+        if ($bCloseConnection === true) {
+            self::$oDb = null;
+        }
     }
 
     /**
@@ -350,7 +393,9 @@ class Db
     public static function optimize()
     {
         $oAllTables = static::showTables();
-        while($aTableNames = $oAllTables->fetch()) static::getInstance()->query('OPTIMIZE TABLE '. $aTableNames[0]);
+        while ($aTableNames = $oAllTables->fetch()) {
+            static::getInstance()->query('OPTIMIZE TABLE ' . $aTableNames[0]);
+        }
         unset($oAllTables);
     }
 
@@ -362,7 +407,11 @@ class Db
     public static function repair()
     {
         $oAllTables = static::showTables();
-        while($aTableNames = $oAllTables->fetch()) static::getInstance()->query('REPAIR TABLE '. $aTableNames[0]);
+
+        while ($aTableNames = $oAllTables->fetch()) {
+            static::getInstance()->query('REPAIR TABLE ' . $aTableNames[0]);
+        }
+
         unset($oAllTables);
     }
 
@@ -373,9 +422,12 @@ class Db
      */
     public static function checkMySqlVersion()
     {
-        $sMySQLVer = self::$_oDb->getAttribute(\PDO::ATTR_SERVER_VERSION);
-        if(version_compare($sMySQLVer, PH7_REQUIRE_SQL_VERSION, '<'))
-            exit('ERROR: Your MySQL version is ' . $sMySQLVer . '. pH7CMS requires MySQL ' . PH7_REQUIRE_SQL_VERSION . ' or newer.');
+        $sMySQLVer = self::$oDb->getAttribute(PDO::ATTR_SERVER_VERSION);
+
+        if (version_compare($sMySQLVer, self::REQUIRED_SQL_VERSION, '<')) {
+            $sMsg = 'ERROR: Your MySQL version is ' . $sMySQLVer . '. pH7CMS requires MySQL ' . self::REQUIRED_SQL_VERSION . ' or newer.';
+            exit($sMsg);
+        }
     }
 
     /**
@@ -383,11 +435,12 @@ class Db
      *
      * @param float $fStartTime
      * @param float $fEndTime
+     *
      * @return void
      */
-    private function _addTime($fStartTime, $fEndTime)
+    private function addTime($fStartTime, $fEndTime)
     {
-        self::$_fTime += round($fEndTime - $fStartTime, 6);
+        self::$fTime += round($fEndTime - $fStartTime, 6);
     }
 
     /**
@@ -395,9 +448,9 @@ class Db
      *
      * @return void
      */
-    private function _increment()
+    private function increment()
     {
-        ++self::$_iCount;
+        self::$iCount++;
     }
 
     /**
@@ -406,5 +459,4 @@ class Db
     private function __clone()
     {
     }
-
 }

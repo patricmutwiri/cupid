@@ -4,54 +4,49 @@
  * @desc           Management error messages for the Exceptions.
  *
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7/ Framework / Error / CException
  * @version        1.1
  */
 
 namespace PH7\Framework\Error\CException {
-defined('PH7') or exit('Restricted access');
+    defined('PH7') or exit('Restricted access');
 
- /**
- * This function for display errors with the ErrorException class which is defined by PH7Exception class.
- * @access public
- */
+    /**
+     * This function for display errors with the ErrorException class which is defined by PH7Exception class.
+     */
+    final class ErrException extends \ErrorException
+    {
+        public function __toString()
+        {
+            switch ($this->severity) {
+                case E_USER_ERROR : // If the user issues a fatal error
+                    $sType = 'Fatal error ';
+                    break;
 
- final class ErrException extends \ErrorException
- {
+                case E_WARNING : // If PHP issues a warning
+                case E_USER_WARNING : // If the user issues a warning
+                    $sType = 'Warning error';
+                    break;
 
-     public function __toString()
-     {
-         switch ($this->severity)
-         {
-             case E_USER_ERROR : // If the user issues a fatal error
-                 $sType = 'Fatal error ';
-             break;
+                case E_NOTICE : // If PHP issues a notice
+                case E_USER_NOTICE : // If the user issues a notice
+                    $sType = 'Notice error';
+                    break;
 
-             case E_WARNING : // If PHP issues a warning
-             case E_USER_WARNING : // If the user issues a warning
-                 $sType = 'Warning error';
-             break;
+                default : // Unknown error
+                    $sType = 'Unknown error';
+                    break;
+            }
 
-             case E_NOTICE : // If PHP issues a notice
-             case E_USER_NOTICE : // If the user issues a notice
-                 $sType = 'Notice error';
-             break;
-
-             default : // Unknown error
-                 $sType = 'Unknown error';
-             break;
-         }
-
-         return '<strong>' . $sType . '</strong> : [' . $this->code . '] ' . htmlspecialchars($this->message, ENT_QUOTES) . '<br /><strong>' . $this->file . '</strong> to line <strong>' . $this->line . '</strong>';
-     }
-
- }
-
+            return '<strong>' . $sType . '</strong> : [' . $this->code . '] ' . htmlspecialchars($this->message, ENT_QUOTES) . '<br /><strong>' . $this->file . '</strong> to line <strong>' . $this->line . '</strong>';
+        }
+    }
 }
 
 namespace {
+    use PH7\Framework\Error\CException\ErrException;
 
     /**
      * The code serves as severity
@@ -61,7 +56,8 @@ namespace {
      * @param string $sMessage
      * @param string $sFile
      * @param string $sLine
-     * @throws \PH7\Framework\Error\CException\ErrException
+     *
+     * @throws ErrException
      */
     function errExcept($iCode, $sMessage, $sFile, $sLine)
     {
@@ -69,7 +65,7 @@ namespace {
     }
 
     /**
-     * @param object $oExcept The \PH7\Framework\Error\CException\ErrException object.
+     * @param ErrException $oExcept
      */
     function customExcept(ErrException $oExcept)
     {
@@ -79,5 +75,4 @@ namespace {
 
     set_error_handler('errExcept');
     set_exception_handler('customExcept');
-
 }

@@ -1,14 +1,14 @@
 <?php
 /**
- * We made this code.
- * By pH7 (Pierre-Henry SORIA).
+ * By Pierre-Henry SORIA <http://ph7.me>
  */
+
 namespace PFBC\Element;
-use \PH7\Framework\Security\Spam\Captcha\Captcha;
+
+use PH7\Framework\Security\Spam\Captcha\Captcha;
 
 class CCaptcha extends Textbox
 {
-
     public function render()
     {
         $this->attributes['required'] = 'required'; // Captcha field is always required!
@@ -17,5 +17,4 @@ class CCaptcha extends Textbox
         echo (new Captcha)->display();
         parent::render();
     }
-
 }

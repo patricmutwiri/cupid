@@ -1,35 +1,38 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Core / Class
  */
+
 namespace PH7;
-use
-PH7\Framework\Session\Session,
-PH7\Framework\Util\Various,
-PH7\Framework\Ip\Ip,
-PH7\Framework\Navigation\Browser,
-PH7\Framework\Config\Config,
-PH7\Framework\Registry\Registry,
-PH7\Framework\Mvc\Model\Security as SecurityModel;
+
+use PH7\Framework\Config\Config;
+use PH7\Framework\Ip\Ip;
+use PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Navigation\Browser;
+use PH7\Framework\Registry\Registry;
+use PH7\Framework\Session\Session;
+use PH7\Framework\Util\Various;
+use stdClass;
 
 // Abstract Class
 class AffiliateCore extends UserCore
 {
-
     const COOKIE_NAME = 'pHSAff';
 
     /**
      * Affiliates'levels.
      *
-     * @return boolean
+     * @return bool
      */
     public static function auth()
     {
         $oSession = new Session;
-        $bIsConnected = (((int)$oSession->exists('affiliate_id')) && $oSession->get('affiliate_ip') === Ip::get() && $oSession->get('affiliate_http_user_agent') === (new Browser)->getUserAgent());
+        $bIsConnected = ((int)$oSession->exists('affiliate_id')) &&
+            $oSession->get('affiliate_ip') === Ip::get() &&
+            $oSession->get('affiliate_http_user_agent') === (new Browser)->getUserAgent();
         unset($oSession);
 
         return $bIsConnected;
@@ -38,17 +41,19 @@ class AffiliateCore extends UserCore
     /**
      * Set an affiliate authentication.
      *
-     * @param integer object $oAffData User database object.
-     * @param object \PH7\UserCoreModel $oAffModel
-     * @param object \PH7\Framework\Session\Session $oSession
-     * @param object \PH7\Framework\Mvc\Model\Security $oSecurityModel
+     * @param stdClass $oAffData User database object.
+     * @param UserCoreModel $oAffModel
+     * @param Session $oSession
+     * @param SecurityModel $oSecurityModel
+     *
      * @return void
      */
-    public function setAuth($oAffData, UserCoreModel $oAffModel, Session $oSession, SecurityModel $oSecurityModel)
+    public function setAuth(stdClass $oAffData, UserCoreModel $oAffModel, Session $oSession, SecurityModel $oSecurityModel)
     {
         // Remove the session if the affiliate is logged on as "user" or "affiliate".
-        if(UserCore::auth() || AdminCore::auth())
+        if (UserCore::auth() || AdminCore::auth()) {
             $oSession->destroy();
+        }
 
         // Regenerate the session ID to prevent session fixation attack
         $oSession->regenerateId();
@@ -65,14 +70,20 @@ class AffiliateCore extends UserCore
         ];
 
         $oSession->set($aSessionData);
-        $oSecurityModel->addLoginLog($oAffData->email, $oAffData->username, '*****', 'Logged in!', 'Affiliates');
-        $oAffModel->setLastActivity($oAffData->profileId, 'Affiliates');
+        $oSecurityModel->addLoginLog(
+            $oAffData->email,
+            $oAffData->username,
+            '*****',
+            'Logged in!',
+            DbTableName::AFFILIATE
+        );
+        $oAffModel->setLastActivity($oAffData->profileId, DbTableName::AFFILIATE);
     }
 
     /**
      * Check if an admin is logged as an affiliate.
      *
-     * @return boolean
+     * @return bool
      */
     public static function isAdminLoggedAs()
     {
@@ -83,22 +94,27 @@ class AffiliateCore extends UserCore
      * Update the Affiliate Commission.
      *
      * @param integer $iAffId Affiliate ID
-     * @param object \PH7\Framework\Config\Config $oConfig
-     * @param object \PH7\Framework\Registry\Registry $oRegistry
+     * @param Config $oConfig
+     * @param Registry $oRegistry
+     *
      * @return void
      */
     public static function updateJoinCom($iAffId, Config $oConfig, Registry $oRegistry)
     {
-        if ($iAffId < 1) return; // If there is no valid ID, we stop the method.
+        if ($iAffId < 1) {
+            // If there is no valid ID, we stop the method
+            return;
+        }
 
         // Load the Affiliate config file
         $oConfig->load(PH7_PATH_SYS_MOD . 'affiliate' . PH7_DS . PH7_CONFIG . PH7_CONFIG_FILE);
 
-        $sType = ($oRegistry->module == 'newsletter' ? 'newsletter' : ($oRegistry->module == 'affiliate' ? 'affiliate' : 'user'));
+        $sType = ($oRegistry->module == 'newsletter' ? 'newsletter' : ($oRegistry->module === 'affiliate' ? 'affiliate' : 'user'));
         $iAffCom = $oConfig->values['module.setting']['commission.join_' . $sType . '_money'];
 
-        if ($iAffCom > 0)
+        if ($iAffCom > 0) {
             (new AffiliateCoreModel)->updateUserJoinCom($iAffId, $iAffCom);
+        }
     }
 
     /**
@@ -106,11 +122,11 @@ class AffiliateCore extends UserCore
      *
      * @param integer $iProfileId
      * @param string $sUsername
+     *
      * @return void
      */
     public function delete($iProfileId, $sUsername)
     {
         (new AffiliateCoreModel)->delete($iProfileId, $sUsername);
     }
-
 }

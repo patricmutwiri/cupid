@@ -1,16 +1,17 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / User / Config
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
 class Permission extends PermissionCore
 {
-
     public function __construct()
     {
         parent::__construct();
@@ -22,19 +23,16 @@ class Permission extends PermissionCore
 
         // Overall levels
         if (!$bUserAuth && (($this->registry->controller === 'AccountController' && $this->registry->action !== 'activate')
-        || ($this->registry->controller === 'FriendController' && $this->registry->action === 'mutual') || $this->registry->action === 'logout'))
-        {
+            || $this->registry->action === 'logout')) {
             $this->signUpRedirect();
         }
 
-        if ((!$bUserAuth && !$bAdminAuth) && ($this->registry->controller === 'SettingController'))
-        {
+        if ((!$bUserAuth && !$bAdminAuth) && ($this->registry->controller === 'SettingController')) {
             $this->signUpRedirect();
         }
 
         if ($bUserAuth && ($this->registry->controller === 'SignupController' || $this->registry->action === 'activate'
-        || $this->registry->action === 'resendactivation' || $this->registry->action === 'login'))
-        {
+            || $this->registry->action === 'resendactivation' || $this->registry->action === 'login')) {
             $this->alreadyConnectedRedirect();
         }
 
@@ -43,20 +41,14 @@ class Permission extends PermissionCore
          * If the admin is not logged (but can be if the admin use "login as user" feature)
          * and not redirect to payment page if the user wants to logout
         */
-        if ((!$bAdminAuth || User::isAdminLoggedAs()) && $this->registry->action !== 'logout')
-        {
-            if (!$this->checkMembership() || ($bUserAuth && !$this->group->member_site_access))
-            {
+        if ((!$bAdminAuth || User::isAdminLoggedAs()) && $this->registry->action !== 'logout') {
+            if (!$this->checkMembership() || ($bUserAuth && !$this->group->member_site_access)) {
                 $this->paymentRedirect();
-            }
-            elseif ($this->registry->controller === 'SearchController')
-            {
-                if (!$this->group->quick_search_profiles || !$this->group->advanced_search_profiles)
-                {
+            } elseif ($this->registry->controller === 'SearchController') {
+                if (!$this->group->quick_search_profiles || !$this->group->advanced_search_profiles) {
                     $this->paymentRedirect();
                 }
             }
         }
     }
-
 }

@@ -1,20 +1,26 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <hello@ph7cms.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Newsletter / Controller
  */
+
 namespace PH7;
 
-use
-PH7\Framework\Navigation\Page,
-PH7\Framework\Url\Header,
-PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Navigation\Page;
+use PH7\Framework\Url\Header;
 
 class AdminController extends Controller
 {
-    private $oSubscriptionModel, $sTitle;
+    const SUBSCRIBERS_PER_PAGE = 30;
+
+    /** @var SubscriptionModel */
+    private $oSubscriptionModel;
+
+    /** @var string */
+    private $sTitle;
 
     public function __construct()
     {
@@ -28,6 +34,7 @@ class AdminController extends Controller
         $this->sTitle = t('Newsletter');
         $this->view->page_title = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -36,6 +43,7 @@ class AdminController extends Controller
         $this->sTitle = t('Search Subscribers');
         $this->view->page_title = $this->sTitle;
         $this->view->h2_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -43,21 +51,32 @@ class AdminController extends Controller
     {
         $oSubscriptionModel = new SubscriptionModel;
 
-        $iTotal = $this->oSubscriptionModel->browse($this->httpRequest->get('looking'), true, $this->httpRequest->get('order'), $this->httpRequest->get('sort'), null, null);
+        $iTotal = $this->oSubscriptionModel->browse(
+            $this->httpRequest->get('looking'),
+            true,
+            $this->httpRequest->get('order'),
+            $this->httpRequest->get('sort'),
+            null,
+            null
+        );
 
         $oPage = new Page;
-        $this->view->total_pages = $oPage->getTotalPages($iTotal, 30);
+        $this->view->total_pages = $oPage->getTotalPages($iTotal, self::SUBSCRIBERS_PER_PAGE);
         $this->view->current_page = $oPage->getCurrentPage();
-        $oBrowse = $this->oSubscriptionModel->browse($this->httpRequest->get('looking'), false, $this->httpRequest->get('order'), $this->httpRequest->get('sort'), $oPage->getFirstItem(), $oPage->getNbItemsByPage());
+        $oBrowse = $this->oSubscriptionModel->browse(
+            $this->httpRequest->get('looking'),
+            false,
+            $this->httpRequest->get('order'),
+            $this->httpRequest->get('sort'),
+            $oPage->getFirstItem(),
+            $oPage->getNbItemsPerPage()
+        );
         unset($oPage);
 
-        if (empty($oBrowse))
-        {
+        if (empty($oBrowse)) {
             $this->design->setRedirect(Uri::get('newsletter', 'admin', 'browse'));
             $this->displayPageNotFound(t('Sorry, Your search returned no results!'));
-        }
-        else
-        {
+        } else {
             // Add the js file necessary for the browse form
             $this->design->addJs(PH7_STATIC . PH7_JS, 'form.js');
 
@@ -78,16 +97,19 @@ class AdminController extends Controller
 
     public function deleteAll()
     {
-        if (!(new Framework\Security\CSRF\Token)->check('subscriber_action'))
+        if (!(new Framework\Security\CSRF\Token)->check('subscriber_action')) {
             $this->sMsg = Form::errorTokenMsg();
-        elseif (count($this->httpRequest->post('action')) > 0)
-        {
-            foreach ($this->httpRequest->post('action') as $sEmail)
+        } elseif (count($this->httpRequest->post('action')) > 0) {
+            foreach ($this->httpRequest->post('action') as $sEmail) {
                 $this->oSubscriptionModel->unsubscribe($sEmail);
+            }
 
             $this->sMsg = t('The subscribers(s) has/have been removed.');
         }
 
-        Header::redirect(Uri::get('newsletter', 'admin', 'browse'), $this->sMsg);
+        Header::redirect(
+            Uri::get('newsletter', 'admin', 'browse'),
+            $this->sMsg
+        );
     }
 }

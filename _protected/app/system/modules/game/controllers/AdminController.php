@@ -1,19 +1,24 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Game / Controller
  */
+
 namespace PH7;
 
-use PH7\Framework\Mvc\Router\Uri, PH7\Framework\Url\Header;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Url\Header;
 
 class AdminController extends MainController
 {
     public function index()
     {
-        Header::redirect(Uri::get('game', 'main', 'index'), t('Welcome to the Game administrator mode.'));
+        Header::redirect(
+            Uri::get('game', 'main', 'index'),
+            t('Welcome to the Game administrator mode.')
+        );
     }
 
     public function add()
@@ -21,6 +26,7 @@ class AdminController extends MainController
         $this->sTitle = t('Add a new Game');
         $this->view->page_title = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -29,14 +35,14 @@ class AdminController extends MainController
         $this->sTitle = t('Edit Game');
         $this->view->page_title = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
     public function delete()
     {
-        if ( $this->httpRequest->postExists( array('id', 'thumb', 'file') ))
-        {
-            $this->oGameModel->delete( $this->httpRequest->post('id', 'int') );
+        if ($this->httpRequest->postExists(['id', 'thumb', 'file'])) {
+            $this->oGameModel->delete($this->httpRequest->post('id', 'int'));
 
             $aFiles = [
                 'thumb' => PH7_PATH_PUBLIC_DATA_SYS_MOD . 'game/img/thumb/' . $this->httpRequest->post('thumb'),
@@ -45,16 +51,16 @@ class AdminController extends MainController
 
             $this->file->deleteFile($aFiles);
 
-            /* Clean GameModel Cache */
-            (new Framework\Cache\Cache)->start(GameModel::CACHE_GROUP, null, null)->clear();
+            Game::clearCache();
 
             $sMsg = t('The game has been removed.');
-        }
-        else
-        {
+        } else {
             $sMsg = t('The game could not be removed.');
         }
 
-        Header::redirect(Uri::get('game', 'admin', 'index'), $sMsg);
+        Header::redirect(
+            Uri::get('game', 'admin', 'index'),
+            $sMsg
+        );
     }
 }

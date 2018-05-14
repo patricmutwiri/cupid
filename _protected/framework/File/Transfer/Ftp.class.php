@@ -3,136 +3,153 @@
  * @title            FTP Class
  * @desc             Management of the file transfer protocol.
  *
- * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @author           Pierre-Henry Soria <hello@ph7cms.com>
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / File / Transfer
  * @version          0.8
- * @link             http://hizup.com
+ * @link             http://ph7cms.com
  * @linkDoc          http://php.net/manual/book.ftp.php
  */
 
 namespace PH7\Framework\File\Transfer;
+
 defined('PH7') or exit('Restricted access');
 
-class Ftp extends \PH7\Framework\File\File
+use PH7\Framework\File\File;
+use PH7\Framework\File\Permission\PermissionException;
+use RuntimeException;
+
+class Ftp extends File
 {
-
     /*** Alias ***/
-    const
-    ASCII = FTP_ASCII,
-    TEXT = FTP_TEXT,
-    BINARY = FTP_BINARY,
-    IMAGE = FTP_IMAGE,
-    TIMEOUT_SEC = FTP_TIMEOUT_SEC,
-    AUTOSEEK = FTP_AUTOSEEK,
-    AUTORESUME = FTP_AUTORESUME,
-    FAILED = FTP_FAILED,
-    FINISHED = FTP_FINISHED,
-    MOREDATA = FTP_MOREDATA;
+    const ASCII = FTP_ASCII;
+    const TEXT = FTP_TEXT;
+    const BINARY = FTP_BINARY;
+    const IMAGE = FTP_IMAGE;
+    const TIMEOUT_SEC = FTP_TIMEOUT_SEC;
+    const AUTOSEEK = FTP_AUTOSEEK;
+    const AUTORESUME = FTP_AUTORESUME;
+    const FAILED = FTP_FAILED;
+    const FINISHED = FTP_FINISHED;
+    const MOREDATA = FTP_MOREDATA;
 
-    private
-    $_sHost,
-    $_sUsername,
-    $_sPassword,
-    $_sPath,
-    $_rStream;
+    /** @var string */
+    private $sHost;
+
+    /** @var string */
+    private $sUsername;
+
+    /** @var string */
+    private $sPassword;
+
+    /** @var string */
+    private $sPath;
+
+    /** @var resource */
+    private $rStream;
 
     /**
-     * Constructor.
-     *
      * @param string $sHost
      * @param string $sUsername
      * @param string $sPassword
-     * @param string $sPath Default: '/'
-     * @throws \PH7\Framework\Error\CException\PH7RuntimeException If FTP PHP extension is not installed.
+     * @param string $sPath
+     *
+     * @throws MissingExtensionException If FTP PHP extension is not installed.
      */
     public function __construct($sHost, $sUsername, $sPassword, $sPath = '/')
     {
-        if (!extension_loaded('ftp'))
-            throw new \PH7\Framework\Error\CException\PH7RuntimeException('FTP PHP extension is not installed!');
+        if (!extension_loaded('ftp')) {
+            throw new MissingExtensionException('FTP PHP extension is not installed!');
+        }
 
         // Attribute assignments
-        $this->_sHost = $sHost;
-        $this->_sUsername = $sUsername;
-        $this->_sPassword = $sPassword;
-        $this->_sPath = $this->checkExtDir($sPath);
+        $this->sHost = $sHost;
+        $this->sUsername = $sUsername;
+        $this->sPassword = $sPassword;
+        $this->sPath = $this->checkExtDir($sPath);
     }
 
     /**
      * Connect to FTP server.
      *
-     * @param $bSsl For a SSL-FTP connection. Default: FALSE
-     * @return boolean Returns TRUE on success or FALSE on failure.
-     * @throws \PH7\Framework\File\Transfer\Exception If the host is incorrect.
+     * @param bool $bSsl For a SSL-FTP connection.
+     *
+     * @return bool Returns TRUE on success or FALSE on failure.
+     *
+     * @throws RuntimeException If the host is incorrect.
      */
     public function connect($bSsl = false)
     {
-        $sConnFunc = ($bSsl) ? 'ftp_ssl_connect' : 'ftp_connect';
+        $sConnFuncName = $bSsl ? 'ftp_ssl_connect' : 'ftp_connect';
 
-        if (!$this->_rStream = $sConnFunc($this->_sHost))
-            Exception('Couldn\'t connect to \'' . $this->_sHost . '\'!');
+        if (!$this->rStream = $sConnFuncName($this->sHost)) {
+            throw new RuntimeException('Cannot connect to ' . $this->sHost);
+        }
 
-        return ftp_login($this->_rStream, $this->_sUsername, $this->_sPassword);
+        return ftp_login($this->rStream, $this->sUsername, $this->sPassword);
     }
 
     /**
      * Check if it is a file.
      *
      * @param string $sFile
-     * @return boolean
+     *
+     * @return bool
      */
     public function existFile($sFile)
     {
-        return is_array(ftp_nlist($this->_rStream, $sFile));
+        return is_array(ftp_nlist($this->rStream, $sFile));
     }
 
     /**
      * Check if it is a directory.
      *
      * @param $sDir string
-     * @return boolean
+     *
+     * @return bool
      */
     public function existDir($sDir)
     {
-        $sCurrent = $this->getCurrentDir();
+        $sCurrentDir = $this->getCurrentDir();
 
-        try
-        {
+        if ($this->changeDir($sCurrentDir)) {
             $this->changeDir($sDir);
-        }
-        catch (Exception $oE)
-        {
+            $sNewDir = $this->getCurrentDir();
+
+            return empty($sNewDir);
         }
 
-        $this->changeDir($sCurrent);
-
-        return empty($oE);
+        return false;
     }
 
     /**
      * Creates a directory if they are in an array. If it does not exist and
      * allows the creation of nested directories specified in the pathname.
      *
-     * @param mixed (string | array) $mDir
-     * @param integer (octal) $iMode Default: 0755
+     * @param string|array $mDir
+     * @param int (octal) $iMode
+     *
      * @return void
-     * @throws \PH7\Framework\File\Transfer\Exception If the file cannot be created.
+     *
+     * @throws PermissionException If the file cannot be created.
      */
     public function createDir($mDir, $iMode = 0755)
     {
-        if (is_array($mDir))
-        {
-            foreach ($mDir as $sD) $this->createDir($sD);
-        }
-        else
-        {
-            if (!$this->existDir($mDir))
-            {
-                if (@ftp_mkdir($this->_rStream, $mDir))
+        if (is_array($mDir)) {
+            foreach ($mDir as $sD) {
+                $this->createDir($sD);
+            }
+        } else {
+            if (!$this->existDir($mDir)) {
+                if (@ftp_mkdir($this->rStream, $mDir)) {
                     $this->chmod($mDir, $iMode); // For Unix OS
-                else
-                    throw new Exception('Error to create file: \'' . $mDir . '\'<br /> Please verify that the directory permission is in writing mode.');
+                } else {
+                    throw new PermissionException(
+                        sprintf('Cannot create "%s" directory.<br /> Please verify that the directory permission is in writing mode.', $mDir)
+                    );
+                }
+            }
         }
     }
 
@@ -141,15 +158,18 @@ class Ftp extends \PH7\Framework\File\File
      *
      * @param string $sFrom Full path to the file on the server.
      * @param string $sTo Full path where the file will be placed on the computer.
+     *
      * @return void
-     * @throws \PH7\Framework\File\Transfer\Exception If the file cannot be transferred to the computer.
+     *
+     * @throws UploadingFileException If the file cannot be transferred to the computer.
      */
     public function get($sFrom, $sTo)
     {
         $iType = $this->getFileMode($sTo);
 
-        if (!@ftp_get($this->_rStream, $sFrom, $sTo, $iType))
-            throw new Exception('There was a problem while uploading \'' . $sFrom . '\'!');
+        if (!@ftp_get($this->rStream, $sFrom, $sTo, $iType)) {
+            throw new UploadingFileException('There was a problem while uploading from: ' . $sFrom);
+        }
     }
 
     /**
@@ -157,18 +177,21 @@ class Ftp extends \PH7\Framework\File\File
      *
      * @param string $sFrom Full path to the file on the computer.
      * @param string $sTo Full path where the file will be placed on the server.
-     * @param integer (octal) $iMode Default: 0644
+     * @param int (octal) $iMode
+     *
      * @return void
-     * @throws \PH7\Framework\File\Transfer\Exception If the file cannot be transferred to the server.
+     *
+     * @throws UploadingFileException If the file cannot be transferred to the server.
      */
     public function put($sFrom, $sTo, $iMode = 0644)
     {
         $iType = $this->getFileMode($sTo);
 
-        if (@ftp_put($this->_rStream, $sTo, $sFrom, $iType))
+        if (@ftp_put($this->rStream, $sTo, $sFrom, $iType)) {
             $this->chmod($sTo, $iMode); // For Unix OS
-        else
-            throw new Exception('There was a problem while uploading \'' . $sFrom . '\'!');
+        } else {
+            throw new UploadingFileException('There was a problem while uploading from: ' . $sFrom);
+        }
     }
 
     /**
@@ -176,61 +199,77 @@ class Ftp extends \PH7\Framework\File\File
      *
      * @param string $sFrom Full path to the file.
      * @param string $sTo Full path to the file.
-     * @return boolean Returns TRUE on success or FALSE on failure.
+     *
+     * @return bool Returns TRUE on success or FALSE on failure.
      */
     public function rename($sFrom, $sTo)
     {
-        if (!$this->existFile($sFrom)) return false;
+        if (!$this->existFile($sFrom)) {
+            return false;
+        }
 
-        return ftp_rename($this->_rStream, $sFrom, $sTo);
+        return ftp_rename($this->rStream, $sFrom, $sTo);
     }
 
     /**
      * Deletes a file or files if they are in an array.
      * If the file does not exist, the function does nothing.
      *
-     * @param mixed (string | array) $mFile
-     * @return boolean
+     * @param string|array $mFile
+     *
+     * @return bool
      */
     public function deleteFile($mFile)
     {
-        if (is_array($mFile))
-            foreach ($mFile as $sF) $this->deleteFile($sF);
-        else
-            if ($this->existFile($mFile)) ftp_delete($this->_rStream, $mFile);
+        if (is_array($mFile)) {
+            $bRet = false;
+            foreach ($mFile as $sFile) {
+                if (!$bRet = $this->deleteFile($sFile)) {
+                    return false;
+                }
+            }
+            return $bRet;
+        } else {
+            if ($this->existFile($mFile)) {
+                return ftp_delete($this->rStream, $mFile);
+            }
+        }
     }
 
     /**
      * Delete directories recursively.
      *
      * @param string $sPath The path
-     * @return boolean
+     *
+     * @return bool
      */
     public function deleteDir($sPath)
     {
-        return $this->existFile($sPath) ? $this->deleteFile($sPath) : array_map(array($this, 'deleteDir'), glob($sPath . '/*')) === @ftp_rmdir($this->_rStream, $sPath);
+        return $this->existFile($sPath) ? $this->deleteFile($sPath) : array_map(array($this, 'deleteDir'), glob($sPath . '/*')) === @ftp_rmdir($this->rStream, $sPath);
     }
 
     /**
      *  Allocates space for a file to be uploaded.
      *
      * @param string $sFile
-     * @return mixed (boolean | string) Returns TRUE on success or a message from the server in case of failure.
+     *
+     * @return bool|string Returns TRUE on success or a message from the server in case of failure.
      */
     public function alloc($sFile)
     {
-        return (!ftp_alloc($this->_rStream, $this->size($sFile), $sRes)) ? $sRes : true;
+        return !ftp_alloc($this->rStream, $this->size($sFile), $sRes) ? $sRes : true;
     }
 
     /**
      * Retrieve the size of a file from the FTP server.
      *
      * @param string $sFile
-     * @return integer Returns the file size on success, or -1 on error.
+     *
+     * @return int Returns the file size on success, or -1 on error.
      */
     public function getSize($sFile)
     {
-        return ftp_size($this->_rStream, $sFile);
+        return ftp_size($this->rStream, $sFile);
     }
 
     /**
@@ -238,32 +277,34 @@ class Ftp extends \PH7\Framework\File\File
      *
      * @return string Current directory name.
      */
-     public function getCurrentDir()
-     {
-         return ftp_pwd($this->_rStream);
-     }
+    public function getCurrentDir()
+    {
+        return ftp_pwd($this->rStream);
+    }
 
     /**
      * Changes the current directory.
      *
      * @param string $sDir
-     * @return boolean Returns TRUE on success or FALSE on failure. If changing directory fails, PHP will also throw a warning.
+     *
+     * @return bool Returns TRUE on success or FALSE on failure. If changing directory fails, PHP will also throw a warning.
      */
     public function changeDir($sDir)
     {
-        return ftp_chdir($this->_rStream, $sDir);
+        return ftp_chdir($this->rStream, $sDir);
     }
 
     /**
      * Changes permission on a file or directory.
      *
      * @param string $sFile
-     * @param integer $iMode Octal Permission for the file.
-     * @return boolean
+     * @param int $iMode Octal Permission for the file.
+     *
+     * @return bool
      */
     public function chmod($sFile, $iMode)
     {
-        return @ftp_chmod($this->_rStream, $iMode, $sFile);
+        return @ftp_chmod($this->rStream, $iMode, $sFile);
     }
 
     /**
@@ -273,46 +314,40 @@ class Ftp extends \PH7\Framework\File\File
      */
     public function close()
     {
-        if (!empty($this->_rStream) && $this->_rStream !== false)
-            ftp_close($this->_rStream);
+        if (!empty($this->rStream) && $this->rStream !== false) {
+            ftp_close($this->rStream);
+        }
     }
 
     /**
      * Requests execution of a command on the FTP server.
      *
      * @param string $sCommand
-     * @return Returns TRUE if the command was successful (server sent response code: 200); otherwise returns FALSE.
+     *
+     * @return bool Returns TRUE if the command was successful (server sent response code: 200); otherwise returns FALSE.
      */
     public function exec($sCommand)
     {
-        return ftp_exec($this->_rStream, $sCommand);
+        return ftp_exec($this->rStream, $sCommand);
     }
 
     /**
      * Get mode of the file.
      *
      * @param string $sFile
-     * @return integer
+     *
+     * @return int
      */
     protected function getFileMode($sFile)
     {
-        return ($this->isBinary($sFile)) ? static::BINARY : static::ASCII;
+        return $this->isBinary($sFile) ? static::BINARY : static::ASCII;
     }
 
     /**
-     * Destruction of the attributes and closes the FTP connection.
+     * Closes the FTP connection.
      */
     public function __destruct()
     {
         $this->close();
-
-        unset(
-            $this->_sHost,
-            $this->_sUsername,
-            $this->_sPassword,
-            $this->_sPath,
-            $this->_rStream
-        );
     }
-
 }

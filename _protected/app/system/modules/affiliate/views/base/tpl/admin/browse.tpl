@@ -24,7 +24,7 @@
                   <th><input type="checkbox" name="all_action" /></th>
                   <th>
                       <button
-                         class="btn btn-default btn-tiny"
+                         class="btn btn-default btn-md"
                           type="submit"
                           formaction="{{ $design->url('affiliate','admin','banall') }}"
                           >{lang 'Ban'}
@@ -32,7 +32,7 @@
                   </th>
                   <th>
                       <button
-                          class="btn btn-default btn-tiny"
+                          class="btn btn-default btn-md"
                           type="submit"
                           formaction="{{ $design->url('affiliate','admin','unbanall') }}"
                           >{lang 'UnBan'}
@@ -40,7 +40,7 @@
                   </th>
                   <th>
                       <button
-                          class="red btn btn-default btn-tiny"
+                          class="red btn btn-default btn-md"
                           type="submit"
                           onclick="return checkChecked()"
                           formaction="{{ $design->url('affiliate','admin','deleteall') }}"
@@ -49,7 +49,7 @@
                   </th>
                   <th>
                       <button
-                          class="btn btn-default btn-tiny"
+                          class="btn btn-default btn-md"
                           type="submit"
                           formaction="{{ $design->url('affiliate','admin','approveall') }}"
                           >{lang 'Approve'}
@@ -57,7 +57,7 @@
                   </th>
                   <th>
                       <button
-                          class="btn btn-default btn-tiny"
+                          class="btn btn-default btn-md"
                           type="submit"
                           formaction="{{ $design->url('affiliate','admin','disapproveall') }}"
                           >{lang 'Disapprove'}
@@ -84,7 +84,7 @@
                         <td>{% $aff->refer %}</td>
                         <td>{% $aff->bankAccount %}</td>
                         <td>
-                            <img src="{{ $design->getSmallFlagIcon(Framework\Geo\Ip\Geo::getCountryCode($aff->ip)) }}" title="{lang 'IP Country'}" alt="{lang 'IP Country'}" /> {{ $design->ip($aff->ip) }}
+                            <img src="{{ $design->getSmallFlagIcon(Framework\Geo\Ip\Geo::getCountryCode($aff->ip)) }}" title="{lang 'Country Flag'}" alt="{lang 'Country Flag'}" /> {{ $design->ip($aff->ip) }}
                         </td>
                         <td class="small">{% $dateTime->get($aff->joinDate)->dateTime() %}</td>
                         <td class="small">
@@ -115,7 +115,7 @@
                                 | {{ $design->popupLinkConfirm(t('Approve'), 'affiliate', 'admin', 'approve', $aff->profileId) }}
                                 or {{ $design->popupLinkConfirm(t('Disapprove (notified user by email)'), 'affiliate', 'admin', 'disapprove', $aff->profileId) }}
                             {/if}
-                            | {{ $design->popupLinkConfirm(t('Delete (Irreversible!)'), 'affiliate', 'admin', 'delete', $aff->profileId.'_'.$aff->username) }}
+                            | {{ $design->popupLinkConfirm(t('Delete'), 'affiliate', 'admin', 'delete', $aff->profileId.'_'.$aff->username) }}
                         </td>
                     </tr>
                 {/each}

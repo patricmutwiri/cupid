@@ -1,6 +1,6 @@
 ==============================================
 
-CREATED, DEVELOPED, PRODUCTED AND POWERED BY SORIA PIERRE-HENRY, All Rights Reserved.
+CREATED, DEVELOPED, PRODUCTED AND POWERED BY PIERRE-HENRY SORIA, All Rights Reserved.
 
 ==============================================
 
@@ -10,7 +10,7 @@ Except certain files and library (JavaScript, PHP, or other) whose license and/o
 ==============================================
 
 pH7 Dating CMS is based on the pH7Core framework (written specifically for this project!).
-This software is only compatible with PHP versions PHP 5.5 and higher and the code is 100% object-oriented.
+This software is only compatible with PHP versions PHP 5.6 and higher and the code is 100% object-oriented.
 We need help to continue this project, so we are waiting for you!
 We want to train a large team to work on this dating software open source project.
 Please contact us to work on this exciting project.
@@ -21,7 +21,7 @@ For license, please read the PH7.LICENSE.txt and PH7.COPYRIGHT.txt files.
 
 ==============================================
 
-Author: Soria Pierre-Henry
-Contact me at: phs [AT] hizup [D0T] net
+Author: Pierre-Henry Soria
+Contact me at: pierrehenrysoria {[AT]} gmail {[D0T]} com  /  hi {[AT]} ph7 {[D0T]} me
 
 ==============================================

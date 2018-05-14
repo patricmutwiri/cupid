@@ -3,28 +3,53 @@
  * @title            Update Picture Ajax Class
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / App / System / Module / Webcam / Asset / Ajax
  * @version          1.6
  */
+
 /*
  * This code was inspired by Martin Angelov's tutorial: http://tutorialzine.com/2011/04/jquery-webcam-photobooth/
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Mvc\Request\Http,
-PH7\Framework\Util\Various,
-PH7\Framework\Error\CException\UserException;
+use PH7\Framework\Error\CException\UserException;
+use PH7\Framework\File\Stream;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Request\Http;
+use PH7\Framework\Util\Various;
 
 class UploadPictureAjax
 {
+    const MD5_BLANK_IMAGE = '7d4df9cc423720b7f1f3d672b89362be';
 
-    private $sPath, $sTmpPathFile, $sOriginalPathFile, $sThumbPathFile, $sFile, $sIsManualApproval;
+    /** @var string */
+    private $sPath;
 
+    /** @var string */
+    private $sTmpPathFile;
+
+    /** @var string */
+    private $sOriginalPathFile;
+
+    /** @var string */
+    private $sThumbPathFile;
+
+    /** @var string */
+    private $sFile;
+
+    /** @var string */
+    private $sIsManualApproval;
+
+    /**
+     * @return self
+     *
+     * @throws UserException
+     */
     public function checkRequestMethod()
     {
         /**
@@ -32,14 +57,16 @@ class UploadPictureAjax
          */
 
         // We only need to handle POST requests:
-        if ((new Http)->getMethod() !== Http::METHOD_POST) throw new UserException('The method must be post request!');
+        if ((new Http)->getMethod() !== Http::METHOD_POST) {
+            throw new UserException('The method must be post request!');
+        }
 
         return $this;
     }
 
     public function generatePath()
     {
-        $this->sIsManualApproval = (DbConfig::getSetting('webcamPictureManualApproval') == 1) ? 'pending' : 'img';
+        $this->sIsManualApproval = $this->isWebcamPictureManualApproval() ? 'pending' : 'img';
 
         $this->sFile = Various::genRnd() . '.jpg';
 
@@ -54,16 +81,15 @@ class UploadPictureAjax
     public function save()
     {
         // The JPEG snapshot is sent as raw input:
-        $rInput = Framework\File\Stream::getInput();
+        $rInput = Stream::getInput();
 
         // Blank image. We don't need this one.
-        if (md5($rInput) == '7d4df9cc423720b7f1f3d672b89362be')
+        if (md5($rInput) === self::MD5_BLANK_IMAGE) {
             exit(1);
-
+        }
 
         $rResult = file_put_contents($this->sTmpPathFile, $rInput);
-        if (!$rResult)
-        {
+        if (!$rResult) {
             echo '{
         "error"     : 1,
         "message"   : "Failed save the image. Make sure you chmod the uploads folder and its subfolders to 777."
@@ -74,12 +100,14 @@ class UploadPictureAjax
         return $this;
     }
 
+    /**
+     * @return self
+     *
+     * @throws UserException
+     */
     public function checkImg()
     {
-        $aInfo = getimagesize($this->sTmpPathFile);
-
-        if ($aInfo['mime'] != 'image/jpeg')
-        {
+        if ($this->isInvalidImageType()) {
             unlink($this->sTmpPathFile);
             throw new UserException('Image type invalid!');
         }
@@ -103,7 +131,18 @@ class UploadPictureAjax
 
         $sOrigImage = imagecreatefromjpeg($this->sTmpPathFile);
         $rNewImage = imagecreatetruecolor(154, 110);
-        imagecopyresampled($rNewImage, $sOrigImage, 0, 0, 0, 0, 154, 110, 520, 370);
+        imagecopyresampled(
+            $rNewImage,
+            $sOrigImage,
+            0,
+            0,
+            0,
+            0,
+            154,
+            110,
+            520,
+            370
+        );
 
         imagejpeg($rNewImage, $this->sThumbPathFile);
 
@@ -112,18 +151,34 @@ class UploadPictureAjax
 
     public function display()
     {
-        $sFile = (DbConfig::getSetting('webcamPictureManualApproval') == 1) ? '../../pending.jpg' : $this->sFile;
+        $sFile = $this->isWebcamPictureManualApproval() ? '../../' . UserDesignCore::PENDING_IMG_FILENAME : $this->sFile;
+
         return '{"status":1,"message":"Success!","filename":"' . $sFile . '"}';
     }
 
-    public function __destruct()
+    /**
+     * @return bool
+     */
+    private function isWebcamPictureManualApproval()
     {
-        unset(
-            $this->sPath, $this->sTmpPathFile, $this->sOriginalPathFile, $this->sThumbPathFile, $this->sFile, $this->sIsManualApproval
-        );
+        return DbConfig::getSetting('webcamPictureManualApproval') == 1;
     }
 
+    /**
+     * @return bool
+     */
+    private function isInvalidImageType()
+    {
+        return getimagesize($this->sTmpPathFile)['mime'] !== 'image/jpeg';
+    }
 }
 
 // Init Class!
-echo (new UploadPictureAjax)->checkRequestMethod()->generatePath()->save()->checkImg()->renameImg()->resizeImg()->display();
+echo (new UploadPictureAjax)
+    ->checkRequestMethod()
+    ->generatePath()
+    ->save()
+    ->checkImg()
+    ->renameImg()
+    ->resizeImg()
+    ->display();

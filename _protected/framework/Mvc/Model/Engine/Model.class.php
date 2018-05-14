@@ -3,24 +3,30 @@
  * @title            Model Class
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Mvc / Model / Engine
- * @version          0.6
  */
 
 namespace PH7\Framework\Mvc\Model\Engine;
+
 defined('PH7') or exit('Restricted access');
 
-use PH7\Framework\Cache\Cache, PH7\Framework\File\File;
+use PH7\Framework\Cache\Cache;
+use PH7\Framework\File\File;
 
 abstract class Model extends Entity
 {
-
     const SQL_FILE_EXT = '.sql';
 
-    protected $orm, $cache;
-    private $_sContents;
+    /** @var Record */
+    protected $orm;
+
+    /** @var Cache */
+    protected $cache;
+
+    /** @var string */
+    private $sContents;
 
     public function __construct()
     {
@@ -31,12 +37,13 @@ abstract class Model extends Entity
     /**
      * @param string $sFile SQL file name.
      * @param string $sPath Path to SQL file.
-     * @param array $aParams Default NULL
-     * @return boolean Returns TRUE on success or FALSE on failure.
+     * @param array $aParams
+     *
+     * @return bool Returns TRUE on success or FALSE on failure.
      */
     public function exec($sFile, $sPath, array $aParams = null)
     {
-        $rStmt = Db::getInstance()->prepare( $this->getQuery($sFile, $sPath) );
+        $rStmt = Db::getInstance()->prepare($this->getQuery($sFile, $sPath));
         $bRet = $rStmt->execute($aParams);
         Db::free($rStmt);
         return $bRet;
@@ -47,15 +54,16 @@ abstract class Model extends Entity
      *
      * @param string $sFile SQL file name.
      * @param string $sPath Path to SQL file.
+     *
      * @return string The SQL query.
      */
     public function getQuery($sFile, $sPath)
     {
         $sFullPath = $sPath . $sFile . static::SQL_FILE_EXT;
-        $this->_sContents = (new File)->getFile($sFullPath);
+        $this->sContents = (new File)->getFile($sFullPath);
         $this->_parseVar();
 
-        return $this->_sContents;
+        return $this->sContents;
     }
 
     /**
@@ -65,12 +73,6 @@ abstract class Model extends Entity
      */
     private function _parseVar()
     {
-        $this->_sContents = str_replace('[DB_PREFIX]', Db::prefix(), $this->_sContents);
+        $this->sContents = str_replace('[DB_PREFIX]', Db::prefix(), $this->sContents);
     }
-
-    public function __destruct()
-    {
-        unset($this->orm, $this->cache);
-    }
-
 }

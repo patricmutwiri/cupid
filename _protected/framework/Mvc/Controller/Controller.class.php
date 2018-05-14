@@ -3,111 +3,77 @@
  * @title            Core Controller Class
  * @desc             Base class for controllers.
  *
- * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2011-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @author           Pierre-Henry Soria <hello@ph7cms.com>
+ * @copyright        (c) 2011-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Mvc / Controller
- * @version          1.2
+ * @version          2.0
+ * @link             http://pierrehenry.be
  */
 
 namespace PH7\Framework\Mvc\Controller;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\Security\Ban\Ban,
-PH7\Framework\Ip\Ip,
-PH7\Framework\Geo\Ip\Geo,
-PH7\Framework\Http\Http,
-PH7\Framework\Mvc\Router\Uri,
-PH7\Framework\Mobile\MobApp,
-PH7\Framework\Module\Various as SysMod,
-PH7\Framework\Mvc\Model as M;
+use PH7\AdminCore;
+use PH7\AffiliateCore;
+use PH7\Framework\Core\Core;
+use PH7\Framework\Geo\Ip\Geo;
+use PH7\Framework\Http\Http;
+use PH7\Framework\Ip\Ip;
+use PH7\Framework\Mobile\MobApp;
+use PH7\Framework\Module\Various as SysMod;
+use PH7\Framework\Mvc\Model as M;
+use PH7\Framework\Mvc\Router\FrontController;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Page\Page;
+use PH7\Framework\Security\Ban\Ban;
+use PH7\Framework\Security\DDoS\Stop as DDoSStoper;
+use PH7\FriendCoreModel;
+use PH7\MailCoreModel;
+use PH7\UserCore;
 
-abstract class Controller extends \PH7\Framework\Core\Core
+abstract class Controller extends Core
 {
+    const HTTP_NOT_FOUND_CODE = 404;
+    const MAINTENANCE_DURATION_SECONDS = 3600;
 
     public function __construct()
     {
         parent::__construct();
 
-        $this->_ddosProtection();
+        $this->ddosProtection();
 
-        /***** Assign the values for Registry Class *****/
-
-        // URL
-        $this->registry->site_url = PH7_URL_ROOT;
-        $this->registry->url_relative = PH7_RELATIVE;
-        $this->registry->page_ext = PH7_PAGE_EXT;
-
-        // Site Name
-        $this->registry->site_name = M\DbConfig::getSetting('siteName');
-
-
-        /** PH7Tpl Template Engine initialization **/
-        /* Assign the global variables */
-
-        // Set config and design objects to the template
-        $this->view->config = $this->config;
-        $this->view->design = $this->design;
-
-        $bIsMobApp = MobApp::is($this->httpRequest, $this->session);
-
-        $aAuthViewVars = [
-            'is_admin_auth' => \PH7\AdminCore::auth(),
-            'is_user_auth' => \PH7\UserCore::auth(),
-            'is_aff_auth' => \PH7\AffiliateCore::auth()
-        ];
-        $aGlobalViewVars = [
-            'is_guest_homepage' => $this->_isGuestOnHomepage($aAuthViewVars['is_user_auth']),
-            'is_disclaimer' => !$bIsMobApp && (bool)M\DbConfig::getSetting('disclaimer'),
-            'is_cookie_consent_bar' => !$bIsMobApp && (bool)M\DbConfig::getSetting('cookieConsentBar'),
-            'country' => Geo::getCountry(),
-            'city' => Geo::getCity()
-        ];
-
-        $this->view->assigns($aAuthViewVars);
-        $this->view->assigns($aGlobalViewVars);
-
-        // Set other variables
-        $this->_setMetaTplVars();
-        $this->_setModsStatusTplVars();
-        $this->_setUserNotifications();
-
-        /***** Display *****/
+        $this->assignSiteInfoRegistryVars();
+        $this->assignGlobalTplVars();
         $this->view->setTemplateDir($this->registry->path_module_views . PH7_TPL_MOD_NAME);
 
-        /***** End Template Engine PH7Tpl *****/
-
-        $this->_checkPerms();
-        $this->_checkModStatus();
-        $this->_checkBanStatus();
-        $this->_checkSiteStatus();
+        $this->checkPerms();
+        $this->checkModStatus();
+        $this->checkBanStatus();
+        $this->checkSiteStatus();
     }
 
     /**
-     * Output Stream Views.
-     *
-     * @final
-     * @param string $sFile Specify another display file instead of the default layout file. Default NULL
-     * @return void
+     * {@inheritdoc}
      */
     final public function output($sFile = null)
     {
         /**
          * Remove database information for the tpl files in order to prevent any attack attempt.
          **/
-        \PH7\Framework\Mvc\Router\FrontController::getInstance()->_removeDatabaseInfo();
+        FrontController::getInstance()->_removeDatabaseInfo();
 
-       /**
-        * Destroy all object instances of PDO and close the connection to the database before the display and the start of the template and free memory
-        */
+        /**
+         * Destroy all object instances of PDO and close the connection to the database before the display and the start of the template and free memory
+         */
         M\Engine\Db::free();
 
-       /**
-        * Output our template and encoding.
-        */
+        /**
+         * Output our template and encoding.
+         */
 
-        $sFile = (!empty($sFile)) ? $sFile : $this->view->getMainPage();
+        $sFile = !empty($sFile) ? $sFile : $this->view->getMainPage();
 
         // header('Content-type: text/html; charset=' . PH7_ENCODING);
         $this->view->display($sFile, PH7_PATH_TPL . PH7_TPL_NAME . PH7_DS);
@@ -116,10 +82,10 @@ abstract class Controller extends \PH7\Framework\Core\Core
 
     /**
      * Includes a template file in the main layout.
-     * Note: For viewing you need to use the \PH7\Framework\Mvc\Controller::output() method.
+     * Note: For viewing you need to use self::output() method.
      *
-     * @final
      * @param string $sFile
+     *
      * @return void
      */
     final public function manualTplInclude($sFile)
@@ -128,28 +94,25 @@ abstract class Controller extends \PH7\Framework\Core\Core
     }
 
     /**
-     * Set a Not Found Error Message with HTTP 404 Code Status.
-     *
-     * @param string $sMsg Default is empty ('')
-     * @param boolean $b404Status For the Ajax blocks and others, we cannot put the HTTP 404 error code, so the attribute must be set to FALSE. Default TRUE
-     * @return void Quits the page with the exit() function
+     * {@inheritdoc}
      */
     public function displayPageNotFound($sMsg = '', $b404Status = true)
     {
-        if ($b404Status) Http::setHeadersByCode(404);
+        if ($b404Status) {
+            Http::setHeadersByCode(self::HTTP_NOT_FOUND_CODE);
+        }
 
         $this->view->page_title = (!empty($sMsg)) ? t('%0% - Page Not Found', $sMsg) : t('Page Not Found');
         $this->view->h1_title = (!empty($sMsg)) ? $sMsg : t('Whoops! The page you requested was not found.');
 
-        $sErrorDesc = t('You may have clicked an expired link or mistyped the address. Some web addresses are case sensitive.') . '<br />
-        <strong><em>' . t('Suggestions:') . '</em></strong><br />
-        <a href="' . $this->registry->site_url . '">' . t('Return home') . '</a><br />';
+        $sErrorDesc = t('You may have clicked an expired link or mistyped the address. Some web addresses are case sensitive.') .
+            '<br /><strong><em>' . t('Suggestions:') .
+            '</em></strong><br /><a href="' . $this->registry->site_url . '">' . t('Return home') . '</a><br />';
 
-        if (!\PH7\UserCore::auth())
-        {
+        if (!UserCore::auth()) {
             $sErrorDesc .=
-            '<a href="' . Uri::get('user','signup','step1') . '">' . t('Join Now') . '</a><br />
-             <a href="' . Uri::get('user','main','login') . '">' . t('Login') . '</a><br />';
+                '<a href="' . Uri::get('user', 'signup', 'step1') . '">' . t('Join Now') . '</a><br />
+                <a href="' . Uri::get('user', 'main', 'login') . '">' . t('Login') . '</a><br />';
         }
 
         $sErrorDesc .= '<a href="javascript:history.back();">' . t('Go back to the previous page') . '</a><br />';
@@ -164,12 +127,15 @@ abstract class Controller extends \PH7\Framework\Core\Core
     /**
      * Set an Access Denied page.
      *
-     * @param boolean $b403Status Set the Forbidden status. For the Ajax blocks and others, we cannot put the HTTP 403 error code, so the attribute must be set to FALSE. Default TRUE
+     * @param bool $b403Status Set the Forbidden status. For the Ajax blocks and others, we cannot put the HTTP 403 error code, so the attribute must be set to FALSE. Default TRUE
+     *
      * @return void Quits the page with the exit() function
      */
     public function displayPageDenied($b403Status = true)
     {
-        if ($b403Status) Http::setHeadersByCode(403);
+        if ($b403Status) {
+            Http::setHeadersByCode(403);
+        }
 
         $sTitle = t('Access Denied!');
         $this->view->page_title = $sTitle;
@@ -182,11 +148,61 @@ abstract class Controller extends \PH7\Framework\Core\Core
     }
 
     /**
+     * Assign site URLs/site name to the Registry class.
+     *
+     * @return void
+     */
+    private function assignSiteInfoRegistryVars()
+    {
+        // Site URL
+        $this->registry->site_url = PH7_URL_ROOT;
+        $this->registry->url_relative = PH7_RELATIVE;
+
+        // Site Name
+        $this->registry->site_name = htmlspecialchars(M\DbConfig::getSetting('siteName'));
+    }
+
+    /**
+     * Assign all global variables to pH7Tpl.
+     *
+     * @return void
+     */
+    private function assignGlobalTplVars()
+    {
+        // Set config and design objects to the template
+        $this->view->config = $this->config;
+        $this->view->design = $this->design;
+
+        $bIsMobApp = MobApp::is($this->httpRequest, $this->session);
+
+        $aAuthViewVars = [
+            'is_admin_auth' => AdminCore::auth(),
+            'is_user_auth' => UserCore::auth(),
+            'is_aff_auth' => AffiliateCore::auth()
+        ];
+        $aGlobalViewVars = [
+            'is_guest_homepage' => $this->isGuestOnHomepage($aAuthViewVars['is_user_auth']),
+            'is_disclaimer' => !$bIsMobApp && (bool)M\DbConfig::getSetting('disclaimer'),
+            'is_cookie_consent_bar' => !$bIsMobApp && (bool)M\DbConfig::getSetting('cookieConsentBar'),
+            'country' => Geo::getCountry(),
+            'city' => Geo::getCity()
+        ];
+
+        $this->view->assigns($aAuthViewVars);
+        $this->view->assigns($aGlobalViewVars);
+
+        // Set other variables
+        $this->setMetaTplVars();
+        $this->setModsStatusTplVars();
+        $this->setUserNotifications();
+    }
+
+    /**
      * Assign Meta and Info vars to the template engine.
      *
      * @return void
      */
-    final private function _setMetaTplVars()
+    final private function setMetaTplVars()
     {
         $oInfo = M\DbConfig::getMetaMain(PH7_LANG_NAME);
 
@@ -210,7 +226,7 @@ abstract class Controller extends \PH7\Framework\Core\Core
         unset($oInfo, $aMetaVars);
     }
 
-    private function _setModsStatusTplVars()
+    private function setModsStatusTplVars()
     {
         $aModsEnabled = [
             'is_connect_enabled' => SysMod::isEnabled('connect'),
@@ -229,18 +245,20 @@ abstract class Controller extends \PH7\Framework\Core\Core
             'is_invite_enabled' => SysMod::isEnabled('invite'),
             'is_webcam_enabled' => SysMod::isEnabled('webcam'),
             'is_mail_enabled' => SysMod::isEnabled('mail'),
-            'is_im_enabled' => SysMod::isEnabled('im')
+            'is_im_enabled' => SysMod::isEnabled('im'),
+            'is_relatedprofile_enabled' => SysMod::isEnabled('related-profile'),
+            'is_friend_enabled' => SysMod::isEnabled('friend')
         ];
 
         $this->view->assigns($aModsEnabled);
         unset($aModsEnabled);
     }
 
-    private function _setUserNotifications()
+    private function setUserNotifications()
     {
         $aNotificationCounter = [
-            'count_unread_mail' => \PH7\MailCoreModel::countUnreadMsg($this->session->get('member_id')),
-            'count_pen_friend_request' => \PH7\FriendCoreModel::getPending($this->session->get('member_id'))
+            'count_unread_mail' => MailCoreModel::countUnreadMsg($this->session->get('member_id')),
+            'count_pen_friend_request' => FriendCoreModel::getPending($this->session->get('member_id'))
         ];
 
         $this->view->assigns($aNotificationCounter);
@@ -248,12 +266,15 @@ abstract class Controller extends \PH7\Framework\Core\Core
     }
 
     /**
-     * @param boolean $bIsUserLogged
-     * @return boolean TRUE if visitor is on the homepage (index).
+     * @param bool $bIsUserLogged
+     *
+     * @return bool TRUE if visitor is on the homepage (index).
      */
-    private function _isGuestOnHomepage($bIsUserLogged)
+    private function isGuestOnHomepage($bIsUserLogged)
     {
-        return (!$bIsUserLogged && $this->registry->module == 'user' && $this->registry->controller == 'MainController' && $this->registry->action == 'index');
+        return !$bIsUserLogged && $this->registry->module === 'user' &&
+            $this->registry->controller === 'MainController' &&
+            $this->registry->action === 'index';
     }
 
     /**
@@ -261,10 +282,11 @@ abstract class Controller extends \PH7\Framework\Core\Core
      *
      * @return void If the module is disabled, displays the Not Found page and exit the script.
      */
-    private function _checkModStatus()
+    private function checkModStatus()
     {
-        if (!SysMod::isEnabled($this->registry->module))
+        if (!SysMod::isEnabled($this->registry->module)) {
             $this->displayPageNotFound();
+        }
     }
 
     /**
@@ -272,10 +294,9 @@ abstract class Controller extends \PH7\Framework\Core\Core
      *
      * @return void
      */
-    private function _checkPerms()
+    private function checkPerms()
     {
-        if (is_file($this->registry->path_module_config . 'Permission.php'))
-        {
+        if (is_file($this->registry->path_module_config . 'Permission.php')) {
             require $this->registry->path_module_config . 'Permission.php';
             new \PH7\Permission;
         }
@@ -287,11 +308,10 @@ abstract class Controller extends \PH7\Framework\Core\Core
      *
      * @return void If banned, exit the script after displaying the ban page.
      */
-    private function _checkBanStatus()
+    private function checkBanStatus()
     {
-        if (Ban::isIp(Ip::get()))
-        {
-            \PH7\Framework\Page\Page::banned();
+        if (Ban::isIp(Ip::get())) {
+            Page::banned();
         }
     }
 
@@ -300,12 +320,11 @@ abstract class Controller extends \PH7\Framework\Core\Core
      *
      * @return void If the status if maintenance, exit the script after displaying the maintenance page.
      */
-    private function _checkSiteStatus()
+    private function checkSiteStatus()
     {
-        if (M\DbConfig::getSetting('siteStatus') === M\DbConfig::MAINTENANCE_SITE
-            && !\PH7\AdminCore::auth() && $this->registry->module !== PH7_ADMIN_MOD)
-        {
-            \PH7\Framework\Page\Page::maintenance(3600); // 1 hour for the duration time of the Service Unavailable HTTP status.
+        if ($this->isMaintenancePageEligible()) {
+            // Set 1 hour for the duration time of the "Service Unavailable" HTTP status
+            Page::maintenance(self::MAINTENANCE_DURATION_SECONDS);
         }
     }
 
@@ -314,11 +333,10 @@ abstract class Controller extends \PH7\Framework\Core\Core
      *
      * @return void
      */
-    private function _ddosProtection()
+    private function ddosProtection()
     {
-        if (!isDebug() && (bool)M\DbConfig::getSetting('DDoS'))
-        {
-            $oDDoS = new \PH7\Framework\Security\DDoS\Stop;
+        if (!isDebug() && (bool)M\DbConfig::getSetting('DDoS')) {
+            $oDDoS = new DDoSStoper;
             if ($oDDoS->cookie() || $oDDoS->session()) {
                 $oDDoS->wait();
             }
@@ -326,4 +344,17 @@ abstract class Controller extends \PH7\Framework\Core\Core
         }
     }
 
+    /**
+     * Determines when and where the maintenance page should be displayed.
+     * e.g., Maintenance page should be displayed only when enabled
+     * and shouldn't be displayed in the admin panel.
+     *
+     * @return bool
+     */
+    private function isMaintenancePageEligible()
+    {
+        return $this->registry->module !== PH7_ADMIN_MOD &&
+            M\DbConfig::getSetting('siteStatus') === M\DbConfig::MAINTENANCE_SITE &&
+            !AdminCore::auth();
+    }
 }

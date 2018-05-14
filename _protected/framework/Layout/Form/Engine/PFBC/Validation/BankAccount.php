@@ -3,8 +3,12 @@
  * We made this code.
  * By pH7 (Pierre-Henry SORIA).
  */
+
 namespace PFBC\Validation;
-use PH7\Framework\Security\Ban\Ban, PH7\ExistsCoreModel;
+
+use PH7\DbTableName;
+use PH7\ExistsCoreModel;
+use PH7\Framework\Security\Ban\Ban;
 
 class BankAccount extends \PFBC\Validation
 {
@@ -14,9 +18,9 @@ class BankAccount extends \PFBC\Validation
     /**
      * Constructor of class.
      *
-     * @param $sTable Default 'Affiliates'
+     * @param string $sTable
      */
-    public function __construct($sTable = 'Affiliates')
+    public function __construct($sTable = DbTableName::AFFILIATE)
     {
         parent::__construct();
         $this->sTable = $sTable;
@@ -24,33 +28,25 @@ class BankAccount extends \PFBC\Validation
 
     /**
      * @param string $sValue
-     * @return boolean
+     *
+     * @return bool
      */
     public function isValid($sValue)
     {
-        if ($this->isNotApplicable($sValue) || $this->oValidate->email($sValue))
-        {
-            if (!Ban::isBankAccount($sValue))
-            {
-                if (!(new ExistsCoreModel)->bankAccount($sValue, $this->sTable))
-                {
+        if ($this->isNotApplicable($sValue) || $this->oValidate->email($sValue)) {
+            if (!Ban::isBankAccount($sValue)) {
+                if (!(new ExistsCoreModel)->bankAccount($sValue, $this->sTable)) {
                     return true;
+                } else {
+                    $this->message = t('Error: Another account with the same bank account already exists. Please choose another one.');
                 }
-                else
-                {
-                    $this->message = t('Error: Another account with the same bank account already exists. Please choose another.');
-                }
+            } else {
+                $this->message = t('Error: This bank account is not supported by our payment system.');
             }
-            else
-            {
-                $this->message = t('Sorry, This bank account is not supported by our payment system.');
-            }
+        } else {
+            $this->message = t('Error: Your bank account is incorrect.');
         }
-        else
-        {
-            $this->message = t('Error: Your bank account is incorrect!');
-        }
+
         return false;
     }
-
 }

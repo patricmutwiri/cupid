@@ -1,46 +1,78 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Core / Model
  */
+
 namespace PH7;
 
 use PH7\Framework\Mvc\Model\Engine\Db;
+use PH7\Framework\Mvc\Model\Engine\Model;
 
-class DataCoreModel extends Framework\Mvc\Model\Engine\Model
+class DataCoreModel extends Model
 {
+    const TB_PICTURE = DbTableName::PICTURE;
+    const TB_VIDEO = DbTableName::VIDEO;
+    const MAX_ITEMS = 1000;
 
-    const TB_PICTURE = 'Pictures', TB_VIDEO = 'Videos', MAX_ITEMS = 1000;
-
+    /**
+     * Get images or videos from either Videos or Pictures table.
+     *
+     * @param string $sTable
+     * @param string $sOrder
+     * @param int $iOffset
+     * @param int $iLimit
+     *
+     * @return array
+     */
     public function getPicsVids($sTable, $sOrder, $iOffset, $iLimit)
     {
-        $iOffset = (int) $iOffset;
-        $iLimit = (int) $iLimit;
+        $iOffset = (int)$iOffset;
+        $iLimit = (int)$iLimit;
 
-        $rStmt = Db::getInstance()->prepare('SELECT data.*, m.username FROM' . Db::prefix($sTable) . 'AS data INNER JOIN' . Db::prefix('Members') . 'AS m ON data.profileId = m.profileId WHERE data.approved=1 ORDER BY ' . $sOrder . ' DESC LIMIT :offset, :limit');
+
+        $sSqlQuery = 'SELECT data.*, m.username FROM' . Db::prefix($sTable) . 'AS data INNER JOIN' .
+            Db::prefix(DbTableName::MEMBER) . 'AS m ON data.profileId = m.profileId WHERE data.approved = 1 ORDER BY ' .
+            $sOrder . ' DESC LIMIT :offset, :limit';
+
+        $rStmt = Db::getInstance()->prepare($sSqlQuery);
         $rStmt->bindParam(':offset', $iOffset, \PDO::PARAM_INT);
         $rStmt->bindParam(':limit', $iLimit, \PDO::PARAM_INT);
 
         $rStmt->execute();
         $oData = $rStmt->fetchAll(\PDO::FETCH_OBJ);
         Db::free($rStmt);
+
         return $oData;
     }
 
+    /**
+     * @param string $sOrder
+     * @param int $iOffset
+     * @param int $iLimit
+     *
+     * @return array
+     */
     public function getForumsPosts($sOrder, $iOffset, $iLimit)
     {
-        $iOffset = (int) $iOffset;
-        $iLimit = (int) $iLimit;
+        $iOffset = (int)$iOffset;
+        $iLimit = (int)$iLimit;
 
-        $rStmt = Db::getInstance()->prepare('SELECT f.name, t.title, t.message, t.createdDate, t.updatedDate, t.forumId, t.topicId, m.username FROM' . Db::prefix('Forums') . 'AS f INNER JOIN' . Db::prefix('ForumsTopics') . 'AS t ON f.forumId = t.forumId LEFT JOIN' . Db::prefix('Members') . ' AS m ON t.profileId = m.profileId WHERE t.approved=1 ORDER BY ' . $sOrder . ' DESC LIMIT :offset, :limit');
+        $sSqlQuery = 'SELECT f.name, t.title, t.message, t.createdDate, t.updatedDate, t.forumId, t.topicId, m.username FROM' .
+            Db::prefix(DbTableName::FORUM) . 'AS f INNER JOIN' . Db::prefix(DbTableName::FORUM_TOPIC) .
+            'AS t ON f.forumId = t.forumId LEFT JOIN' . Db::prefix(DbTableName::MEMBER) .
+            ' AS m ON t.profileId = m.profileId WHERE t.approved = 1 ORDER BY ' . $sOrder . ' DESC LIMIT :offset, :limit';
+
+        $rStmt = Db::getInstance()->prepare($sSqlQuery);
         $rStmt->bindParam(':offset', $iOffset, \PDO::PARAM_INT);
         $rStmt->bindParam(':limit', $iLimit, \PDO::PARAM_INT);
 
         $rStmt->execute();
         $oData = $rStmt->fetchAll(\PDO::FETCH_OBJ);
         Db::free($rStmt);
+
         return $oData;
     }
 
@@ -61,7 +93,12 @@ class DataCoreModel extends Framework\Mvc\Model\Engine\Model
 
     public function getForums()
     {
-        return (new ForumCoreModel)->getForum(null, 0, static::MAX_ITEMS, ForumCoreModel::UPDATED);
+        return (new ForumCoreModel)->getForum(
+            null,
+            0,
+            static::MAX_ITEMS,
+            ForumCoreModel::UPDATED
+        );
     }
 
     public function getForumsTopics()
@@ -71,92 +108,165 @@ class DataCoreModel extends Framework\Mvc\Model\Engine\Model
 
     public function getForumsMessages($iTopicId)
     {
-        return (new ForumCoreModel)->getMessage($iTopicId, null, null, 1, 0, static::MAX_ITEMS, Db::DESC);
+        return (new ForumCoreModel)->getMessage(
+            $iTopicId,
+            null,
+            null,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            Db::DESC
+        );
     }
 
     public function getCommentsProfiles()
     {
-        return (new CommentCoreModel)->gets('Profile');
+        return (new CommentCoreModel)->gets('profile');
     }
 
     public function getCommentsBlogs()
     {
-        return (new CommentCoreModel)->gets('Blog');
+        return (new CommentCoreModel)->gets('blog');
     }
 
     public function getCommentsNotes()
     {
-        return (new CommentCoreModel)->gets('Note');
+        return (new CommentCoreModel)->gets('note');
     }
 
     public function getCommentsPictures()
     {
-        return (new CommentCoreModel)->gets('Picture');
+        return (new CommentCoreModel)->gets('picture');
     }
 
     public function getCommentsVideos()
     {
-        return (new CommentCoreModel)->gets('Video');
+        return (new CommentCoreModel)->gets('video');
     }
 
     public function getCommentsGames()
     {
-        return (new CommentCoreModel)->gets('Game');
+        return (new CommentCoreModel)->gets('game');
     }
 
     public function getRecipientCommentsProfiles($iRecipientId)
     {
-        return (new CommentCoreModel)->read($iRecipientId, 1, 0, static::MAX_ITEMS, 'Profile');
+        return (new CommentCoreModel)->read(
+            $iRecipientId,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            'profile'
+        );
     }
 
     public function getRecipientCommentsBlogs($iRecipientId)
     {
-        return (new CommentCoreModel)->read($iRecipientId, 1, 0, static::MAX_ITEMS, 'Blog');
+        return (new CommentCoreModel)->read(
+            $iRecipientId,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            'blog'
+        );
     }
 
     public function getRecipientCommentsNotes($iRecipientId)
     {
-        return (new CommentCoreModel)->read($iRecipientId, 1, 0, static::MAX_ITEMS, 'Note');
+        return (new CommentCoreModel)->read(
+            $iRecipientId,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            'note'
+        );
     }
 
     public function getRecipientCommentsPictures($iRecipientId)
     {
-        return (new CommentCoreModel)->read($iRecipientId, 1, 0, static::MAX_ITEMS, 'Picture');
+        return (new CommentCoreModel)->read(
+            $iRecipientId,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            'picture'
+        );
     }
 
     public function getRecipientCommentsVideos($iRecipientId)
     {
-        return (new CommentCoreModel)->read($iRecipientId, 1, 0, static::MAX_ITEMS, 'Video');
+        return (new CommentCoreModel)->read(
+            $iRecipientId,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            'video'
+        );
     }
 
     public function getRecipientCommentsGames($iRecipientId)
     {
-        return (new CommentCoreModel)->read($iRecipientId, 1, 0, static::MAX_ITEMS, 'Game');
+        return (new CommentCoreModel)->read(
+            $iRecipientId,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            'game'
+        );
     }
 
     public function getAlbumsPictures()
     {
-        return (new PictureCoreModel)->album(null, null, 1, 0, static::MAX_ITEMS, SearchCoreModel::CREATED);
+        return (new PictureCoreModel)->album(
+            null,
+            null,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            SearchCoreModel::CREATED
+        );
     }
 
     public function getPictures()
     {
-        return $this->getPicsVids(static::TB_PICTURE, SearchCoreModel::CREATED, 0, static::MAX_ITEMS);
+        return $this->getPicsVids(
+            static::TB_PICTURE,
+            SearchCoreModel::CREATED,
+            0,
+            static::MAX_ITEMS
+        );
     }
 
     public function getAlbumsVideos()
     {
-        return (new VideoCoreModel)->album(null, null, 1, 0, static::MAX_ITEMS, SearchCoreModel::CREATED);
+        return (new VideoCoreModel)->album(
+            null,
+            null,
+            '1',
+            0,
+            static::MAX_ITEMS,
+            SearchCoreModel::CREATED
+        );
     }
 
     public function getVideos()
     {
-        return $this->getPicsVids(static::TB_VIDEO, SearchCoreModel::CREATED, 0, static::MAX_ITEMS);
+        return $this->getPicsVids(
+            static::TB_VIDEO,
+            SearchCoreModel::CREATED,
+            0,
+            static::MAX_ITEMS
+        );
     }
 
     public function getGames()
     {
-        return (new GameCoreModel)->get(null, null, 0, static::MAX_ITEMS, SearchCoreModel::ADDED_DATE);
+        return (new GameCoreModel)->get(
+            null,
+            null,
+            0,
+            static::MAX_ITEMS,
+            SearchCoreModel::ADDED_DATE
+        );
     }
-
 }

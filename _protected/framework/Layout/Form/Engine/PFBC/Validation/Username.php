@@ -1,28 +1,36 @@
 <?php
 /**
- * We made this code.
- * By pH7 (Pierre-Henry SORIA).
+ * By Pierre-Henry SORIA <http://ph7.me>
  */
+
 namespace PFBC\Validation;
+
+use PFBC\Validation;
+use PH7\DbTableName;
 use PH7\Framework\Mvc\Model\DbConfig;
 
-class Username extends \PFBC\Validation
+class Username extends Validation
 {
-    protected $sTable, $iMin, $iMax;
+    /** @var string */
+    protected $sTable;
+
+    /** @var int */
+    protected $iMin;
+
+    /** @var int */
+    protected $iMax;
 
     /**
-     * Constructor of class.
-     *
-     * @param string $sTable Default 'Members'
+     * @param string $sTable
      */
-    public function __construct($sTable = 'Members')
+    public function __construct($sTable = DbTableName::MEMBER)
     {
         parent::__construct();
 
         $this->sTable = $sTable;
         $this->iMin = DbConfig::getSetting('minUsernameLength');
         $this->iMax = DbConfig::getSetting('maxUsernameLength');
-        $this->message = t('Error: Your username has to contain from %0% to %1% characters, your username is not available or it is already used by other member.', $this->iMin, $this->iMax);
+        $this->message = t('Error: Username has to be from %0% to %1% characters long, or it is not available or already used by other user.', $this->iMin, $this->iMax);
     }
 
     public function isValid($sValue)

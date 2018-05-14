@@ -4,109 +4,146 @@
  * @desc             Various Page methods with also the pagination methods.
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Navigation
  * @version          1.2
  */
 
 namespace PH7\Framework\Navigation;
+
 defined('PH7') or exit('Restricted access');
 
-use PH7\Framework\Mvc\Request\Http;
+use PH7\Framework\Mvc\Request\Http as HttpRequest;
 
 class Page
 {
-    private $_oHttpRequest, $_iTotalPages, $_iTotalItems, $_iNbItemsByPage, $_iCurrentPage, $_iFirstItem;
+    const DEFAULT_NUMBER_ITEMS = 10;
+
+    /** @var HttpRequest */
+    private $oHttpRequest;
+
+    /** @var int */
+    private $iTotalPages;
+
+    /** @var int */
+    private $iTotalItems;
+
+    /** @var int */
+    private $iNbItemsPerPage;
+
+    /** @var int */
+    private $iCurrentPage;
+
+    /** @var int */
+    private $iFirstItem;
 
     public function __construct()
     {
-        $this->_oHttpRequest = new Http;
+        $this->oHttpRequest = new HttpRequest;
     }
 
-
-    /***** Methods for preparing the paging system *****/
-
     /**
-     * @access protected
-     * @param integer $iTotalItems
-     * @param integer $iNbItemsByPage
+     * @param int $iTotalItems
+     * @param int $iNbItemsPerPage
+     *
      * @return void
      */
-    protected function totalPages($iTotalItems, $iNbItemsByPage)
+    protected function totalPages($iTotalItems, $iNbItemsPerPage)
     {
-        $this->_iTotalItems = (int) $iTotalItems;
-        $this->_iNbItemsByPage = (int) $iNbItemsByPage; // or intval() function, but it is slower than the cast
-        $this->_iCurrentPage = (int) ($this->_oHttpRequest->getExists('p')) ? $this->_oHttpRequest->get('p') : 1;
-        $this->_iTotalPages = (int) ($this->_iTotalItems !== 0 && $this->_iNbItemsByPage !== 0) ? ceil($this->_iTotalItems / $this->_iNbItemsByPage) : 0; // Ternary condition to prevent division by zero
-        $this->_iFirstItem = (int) ($this->_iCurrentPage-1) * $this->_iNbItemsByPage;
+        $this->iTotalItems = (int)$iTotalItems;
+        $this->iNbItemsPerPage = (int)$iNbItemsPerPage; // or intval() function, but it is slower than casting
+        $this->iCurrentPage = (int)$this->oHttpRequest->getExists('p') ? $this->oHttpRequest->get('p') : 1;
+
+        // Ternary condition to prevent division by zero
+        $this->iTotalPages = (int)($this->iTotalItems !== 0 && $this->iNbItemsPerPage !== 0) ? ceil($this->iTotalItems / $this->iNbItemsPerPage) : 0;
+
+        $this->iFirstItem = (int)($this->iCurrentPage - 1) * $this->iNbItemsPerPage;
     }
 
     /**
-     * @param integer $iTotalItems
-     * @param integer $iNbItemsByPage Default 10
-     * @return integer The number of pages.
+     * @param int $iTotalItems
+     * @param int $iNbItemsPerPage Default 10
+     *
+     * @return int The number of pages.
      */
-    public function getTotalPages($iTotalItems, $iNbItemsByPage = 10)
+    public function getTotalPages($iTotalItems, $iNbItemsPerPage = self::DEFAULT_NUMBER_ITEMS)
     {
-        $this->totalPages($iTotalItems, $iNbItemsByPage);
-        return ($this->_iTotalPages < 1) ? 1 : $this->_iTotalPages;
+        $this->totalPages($iTotalItems, $iNbItemsPerPage);
+
+        return ($this->iTotalPages < 1) ? 1 : $this->iTotalPages;
     }
 
+    /**
+     * @return int
+     */
     public function getTotalItems()
     {
-        return $this->_iTotalItems;
+        return $this->iTotalItems;
     }
 
+    /**
+     * @return int
+     */
     public function getFirstItem()
     {
-        return ($this->_iFirstItem < 0) ? 0 : $this->_iFirstItem;
+        return $this->iFirstItem < 0 ? 0 : $this->iFirstItem;
     }
 
-    public function getNbItemsByPage()
+    /**
+     * @return int
+     */
+    public function getNbItemsPerPage()
     {
-        return $this->_iNbItemsByPage;
+        return $this->iNbItemsPerPage;
     }
 
+    /**
+     * @return int
+     */
     public function getCurrentPage()
     {
-        return $this->_iCurrentPage;
+        return $this->iCurrentPage;
     }
 
     /**
      * Clean a Dynamic URL for some features CMS.
      *
-     * @static
      * @param string $sVar The Query URL (e.g. www.pierre-henry-soria.com/my-mod/?query=value).
+     *
      * @return string $sPageUrl The new clean URL.
      */
     public static function cleanDynamicUrl($sVar)
     {
-        $sCurrentUrl = (new Http)->currentUrl();
+        $sCurrentUrl = (new HttpRequest)->currentUrl();
         $sUrl = preg_replace('#\?.+$#', '', $sCurrentUrl);
 
-        if (preg_match('#\?(.+[^\./])=(.+[^\./])$#', $sCurrentUrl))
-        {
-            $sUrlSlug = (strpos($sCurrentUrl, '&amp;') !== false) ? strrchr($sCurrentUrl, '?') : strrchr($sCurrentUrl, '?');
-            $sPageUrl = $sUrl . $sUrlSlug . '&amp;' . $sVar . '=';
-        }
-        else
-        {
-            $sPageUrl = $sUrl . static::trailingSlash($sUrl) . '?' . $sVar . '=';
+        if (preg_match('#\?(.+[^\./])=(.+[^\./])$#', $sCurrentUrl)) {
+            return $sUrl . self::getUrlSlug($sCurrentUrl) . '&amp;' . $sVar . '=';
         }
 
-        return $sPageUrl;
+        return $sUrl . self::trailingSlash($sUrl) . '?' . $sVar . '=';
     }
 
     /**
      * Returns a trailing slash if needed.
      *
-     * @static
      * @param  string $sUrl
+     *
      * @return string
      */
-    protected static function trailingSlash($sUrl)
+    private static function trailingSlash($sUrl)
     {
-        return (substr($sUrl, -1) !== PH7_SH && !strstr($sUrl, PH7_PAGE_EXT)) ? PH7_SH : '';
+        return substr($sUrl, -1) !== PH7_SH && !strstr($sUrl, PH7_PAGE_EXT) ? PH7_SH : '';
+    }
+
+    /**
+     * @param string $sCurrentUrl
+     *
+     * @return string
+     */
+    private static function getUrlSlug($sCurrentUrl)
+    {
+        return strpos($sCurrentUrl, '&amp;') !== false ? strrchr($sCurrentUrl, '?') : strrchr($sCurrentUrl, '?');
     }
 }

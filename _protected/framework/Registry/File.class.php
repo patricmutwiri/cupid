@@ -4,13 +4,14 @@
  * @desc             Handle File Registry Class.
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Registry
  * @version          0.9
  */
 
 namespace PH7\Framework\Registry;
+
 defined('PH7') or exit('Restricted access');
 
 /**
@@ -18,23 +19,21 @@ defined('PH7') or exit('Restricted access');
  */
 abstract class File implements \Serializable
 {
+    /** @var string */
+    private $sPath;
 
-    private $_sPath, $_rFile = null;
+    /** @var resource|null */
+    private $rFile = null;
 
-    /**
-     * Constructor.
-     *
-     * @access public
-     */
     public function __construct()
     {
-        $this->_sPath = PH7_PATH_TMP . 'hashList.tmp';
-        $this->_open();
+        $this->sPath = PH7_PATH_TMP . 'hashList.tmp';
+        $this->open();
     }
 
     /**
-     * @access public
      * @param mixed $mData
+     *
      * @return string Returns a string containing a byte-stream representation of the value.
      */
     public function serialize($mData)
@@ -43,9 +42,9 @@ abstract class File implements \Serializable
     }
 
     /**
-     * @access public
      * @param string $sData
-     * @return mixed (boolean | integer | float | string | array | object) Returns the converted value if successful otherwise returns false.
+     *
+     * @return string Returns the converted value if successful otherwise returns false.
      */
     public function unserialize($sData)
     {
@@ -53,73 +52,68 @@ abstract class File implements \Serializable
     }
 
     /**
-     * @access public
-     * @return string
+     * @return void
      */
     public function __sleep()
     {
-        $this->_close();
+        $this->close();
     }
 
     /**
-     * @access public
      * @return void
      */
     public function __wakeup()
     {
-        $this->_close();
+        $this->close();
     }
 
     /**
-     * @access public
-     * @return mixed (string | boolean) Returns the read string or FALSE on failure.
+     * @return string|boolean Returns the read string or FALSE on failure.
      */
     public function read()
     {
-        rewind($this->_rFile);
-        return fread($this->_rFile, filesize($this->_sPath));
+        rewind($this->rFile);
+
+        return fread($this->rFile, filesize($this->sPath));
     }
 
     /**
-     * @access public
      * @param string $sData
+     *
      * @return void
      */
     public function write($sData)
     {
-        fwrite($this->_rFile, $sData);
+        fwrite($this->rFile, $sData);
     }
 
     /**
-     * @access private
      * @return void
      */
-    private function _open()
+    private function open()
     {
-        $this->_rFile = fopen($this->_sPath, 'wb+');
+        $this->rFile = fopen($this->sPath, 'wb+');
     }
 
     /**
-     * @access private
      * @return boolean
      */
-    private function _close()
+    private function close()
     {
-        if(null === $this->_rFile)
+        if (null === $this->rFile) {
             return false;
+        }
 
-        fclose($this->_rFile);
-        $this->_rFile = null;
+        fclose($this->rFile);
+        $this->rFile = null;
+
         return true;
     }
 
-    /**
-     * @access public
-     */
     public function __destruct()
     {
-        if(null !== $this->_rFile)
-            $this->_close();
+        if (null !== $this->rFile) {
+            $this->close();
+        }
     }
-
 }

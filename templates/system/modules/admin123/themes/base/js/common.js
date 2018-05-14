@@ -1,29 +1,31 @@
 /*
  * Author:        Pierre-Henry Soria <ph7software@gmail.com>
- * Copyright:     (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * Copyright:     (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * License:       GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  */
 
-function cache(sType, sCSRFToken)
-{
-    $.post(pH7Url.base + pH7Url.admin_mod + 'asset/ajax/Cache', {type : sType, security_token : sCSRFToken}, function(oResponseData) {
-      (oResponseData.status == 1) ? $('.msg').addClass('alert alert-success') : $('.msg').addClass('alert alert-danger');
-      $('.msg').text(oResponseData.txt).fadeOut(1000);
-      window.location.reload();
+function cache(sType, sCSRFToken) {
+    $.post(pH7Url.base + pH7Url.admin_mod + 'asset/ajax/Cache', {
+        type: sType,
+        security_token: sCSRFToken
+    }, function (oResponseData) {
+        (oResponseData.status == 1) ? $('.msg').addClass('alert alert-success') : $('.msg').addClass('alert alert-danger');
+        $('.msg').text(oResponseData.txt).fadeOut(1000);
+        window.location.reload();
     }, 'json');
 }
 
-function ads(sType, iAdsId, sCSRFToken)
-{
-    $.post(pH7Url.base + pH7Url.admin_mod + 'asset/ajax/Ads', {type : sType, adsId : iAdsId, security_token : sCSRFToken}, function(oResponseData)
-    {
-        if(oResponseData.status == 1)
-        {
+function ads(sType, iAdsId, sCSRFToken) {
+    $.post(pH7Url.base + pH7Url.admin_mod + 'asset/ajax/Ads', {
+        type: sType,
+        adsId: iAdsId,
+        security_token: sCSRFToken
+    }, function (oResponseData) {
+        if (oResponseData.status == 1) {
             $('.msg').addClass('alert alert-success');
-            $('#ad_' +  iAdsId).hide("slow");
+            $('#ad_' + iAdsId).hide("slow");
         }
-        else
-        {
+        else {
             $('.msg').addClass('alert alert-danger');
         }
 

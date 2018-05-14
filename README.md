@@ -1,14 +1,14 @@
 # pH7 Social Dating CMS
 
-### The Most Secure and Powerful Professional Dating Web App Builder
+### The Most Secure, Powerful & Professional Dating Web App Builder
 
 
-[![Scrutinizer Quality Score](https://scrutinizer-ci.com/g/pH7Software/pH7-Social-Dating-CMS/badges/quality-score.png?s=79700cb86e25e0f125926f2f52984dd3ebacd81d)](https://scrutinizer-ci.com/g/pH7Software/pH7-Social-Dating-CMS/) [![PayPal donate button](http://img.shields.io/badge/paypal-donate-orange.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XWLDYLFKCLEJQ "Help keep me off the streets! ;)")
+[![Build Status](https://scrutinizer-ci.com/g/pH7Software/pH7-Social-Dating-CMS/badges/build.png?b=master)](https://scrutinizer-ci.com/g/pH7Software/pH7-Social-Dating-CMS/build-status/master) [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/pH7Software/pH7-Social-Dating-CMS/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/pH7Software/pH7-Social-Dating-CMS/?branch=master) [![PayPal donate button](https://img.shields.io/badge/paypal-donate-orange.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=X457W3L7DAPC6 "Help keep me off the streets! ;)")
 
 
 **pH7 Social Dating CMS** is a **Professional** & **Open Source** Social Dating CMS, fully responsive design, low-resource-intensive, powerful and very secure.
 
-pH7CMS is included with 32 modules and based on its homemade framework (pH7Framework). It is also the first Professional, free and open source European Social Dating Site Builder Software and the first choice for creating enterprise level Dating Apps/Service or social networking sites.
+pH7CMS is included with 35 modules and based on its homemade framework (pH7Framework). It is also the first Professional, Free and Open Source Social Dating Site Builder Software and the first choice for creating enterprise level Dating Apps/Service or social networking sites.
 
 
 ![Professional PHP Social Dating Builder Software](https://cloud.githubusercontent.com/assets/1325411/19419476/5475b32c-93d0-11e6-9756-8e7db8df129f.png)
@@ -18,31 +18,35 @@ pH7CMS is included with 32 modules and based on its homemade framework (pH7Frame
 
 **pH7 Dating CMS** is a **Social/Dating CMS** written in **Object-Oriented** PHP (*OOP*), fully compatible and highly optimised for PHP 7+ and based on **MVC** architecture (Model-View-Controller).
 
-It is designed with the **KISS** principle in mind, and the all source code can be read and understood in minutes. For a better flexibility, the software uses **PDO** (PHP Data Objects) abstraction which allows the choice of the database. The principle of development is **DRY** (Don't Repeat Yourself) aimed at reducing repetition of information of all kinds (not duplicate code).
+It is designed with the **KISS** principle in mind, and the all source code can be read and understood in minutes. For a better flexibility, the software uses **PDO** (PHP Data Objects) abstraction which allows the choice of the database. The principle of development is **DRY** (Don't Repeat Yourself) aimed at reducing repetition of information of all kinds (no duplicate code).
 
-This Free and Open Source **Social Dating Site Builder** wants to be low resource-intensive, powerful, stable and secure. The software also comes with 32 system modules and is based on **pH7Framework** *(written specifically for this project)* that has over 52 packages.
+This Free and Open Source **Social Dating Site Builder** wants to be low resource-intensive, powerful, stable and secure. The software also comes with 35 system modules and is based on **pH7Framework** *(written specifically for this project)* that has over 52 packages.
 
-To summarize, **pH7CMS** gives you **the perfect ingredients** to create the **best dating service** or **social networking** website on the World Wide Web!
+*To summarize, **pH7CMS** gives you **the perfect ingredients** to create the **best online dating service** or **social networking** website on the World Wide Web!*
 
 
 ## How Powerful is your future Dating App?
 
 * Best Dating Features
 * Advanced Search
-* Blogs
+* Blog
 * Notes
 * Pages Management
-* Friends, Visit, Messages, Instant messaging, Views, Like, Rating, Smileys, Geo Map, Avatar, Wallpaper, ...
+* Friends/Mutual Friends, Visit, Messages, Instant messaging, Views, Like, Rating, Smileys, Geo Map, Avatar, Wallpaper, ...
+* Related Profiles (for better user experience and faster match)
 * Custom Profile (Background profile)
 * Comments
 * Hot or Not
 * Love Calculator
-* Geolocation
+* Geo-location
+* People Nearby
 * Photo Albums
 * Videos (and possibility to upload videos from API v3 YouTube, Vimeo, Metacafe and Dailymotion)
 * Forums
 * Full Moderation of all contents posted by your users
 * Nudity Filter Option for all images uploaded by users
+* Dating Scammer Detector (see if profile photos aren't used by scammers)
+* Anti-Scam Tools
 * Watermark Branding
 * Chat Rooms
 * Chatroulette
@@ -51,10 +55,11 @@ To summarize, **pH7CMS** gives you **the perfect ingredients** to create the **b
 * Affiliate
 * Newsletter
 * Activity Streams
-* Member approval system
+* User Mentions (using the “@” symbol with the username such as [@pH-7](https://github.com/pH-7))
+* Member Approval System
 * Advanced Admin Panel
 * Complete Membership System
-* Payment Gateways Integration for PayPal, Stripe, Bitcoin and 2CheckOut
+* Payment Gateways Integration for PayPal, Stripe, Braintree, Bitcoin and 2CheckOut
 * Statistics & Analytics System
 * Live Notification System
 * Registration delay (to avoid spam)
@@ -62,14 +67,16 @@ To summarize, **pH7CMS** gives you **the perfect ingredients** to create the **b
 * Dynamic Field Forms Management
 * Privacy Settings
 * Banner/Advertisement Management
+* User Dashboard
+* Dating-Style Profile Page
 * Fake Profile Generator
 * CSV User Importer
 * Support for Multiple Languages, Internationalization and Localization (I18N)
-* American & European for the Time and Date formats
+* European and American Time/Date formats
 * Cache system for the database, pH7Tpl (our template engine), static files (HTML, CSS, JS), string content, ...
 * Maintenance Mode
 * Database Backup
-* Report
+* Report Abuse
 * SEO-Friendly (Title, Content, Code, ...), Sitemap module, [hreflang](https://support.google.com/webmasters/answer/189077), possibility to translate each URL, ...
 * Multilingual URLs
 * Check that all UGC (User-Generated Content) are Unique (to avoid spam and malicious users)
@@ -88,38 +95,53 @@ To summarize, **pH7CMS** gives you **the perfect ingredients** to create the **b
 * Allow to sign in to your site with Facebook, Google and Twitter thanks pH7CMS's Connect module
 * Invite Friends
 * Social Bookmark (Social Media Sharing Buttons)
-* Anti-spam system
-* Full Security system against XSS, CSRF, SQL injection, authentication hacking, session fixation, brute-force, ... and protect even against some DDoS attacks!
+* Powerful Anti-Spam System
+* Full Security system against XSS, CSRF, SQL injection, authentication hacking, session fixation, brute-force, reverse tabnabbing phishing attacks, ... and can even prevent some DDoS attacks!
 * Two-Factor Authentication Option available for Admins, Users and Affiliates
 * Admin Panel - Block Access with IP Restriction
 * Beautiful Code: Very thoroughly commented about what's happening throughout the PHP code, beautiful indentation and very readable, even for non-programmers
-* Everyone can easily contribute to this great innovative project with our [GitHub repository](http://github.com/pH7Software/pH7-Social-Dating-CMS)
+* Anyone can easily contribute to pH7CMS project thanks the [GitHub repository](https://github.com/pH7Software/pH7-Social-Dating-CMS)
 
 
-**It's not a hazard that pH7CMS is considered to be the first choice for creating enterprise level Dating Apps/Service or Social Networking Sites**
+**It's not a hazard that pH7CMS is considered to be the first choice for creating an enterprise level dating web app or social networking website**
 
-*If you want more, [here are other great features](http://ph7cms.com/social-dating-features/) included in pH7CMS (and obviously in [pH7CMS Pro](http://ph7cms.com/pro/) as well) that may interest you!*
+*Great features [like here](http://ph7cms.com/social-dating-features/) and many other unique and exclusive features are waiting for YOU. Already released in pH7CMS!*
 
 ![Build a Social Dating Web App with pH7CMS](https://cloud.githubusercontent.com/assets/1325411/19419481/657386a4-93d0-11e6-8eee-95deba2d30a0.png)
 
 
 ## Requirements
 
-* **Application Server** PHP 5.5.0 or higher (Recommended Version: **PHP 7.0.4** or higher).
+* **Application Server** PHP 5.6 or higher (Recommended Version: **PHP 7.0.4** or higher).
 
 * **Database** MySQL/MariaDB 5.0.15 or higher.
 
 * **Operating System** Linux/Unix (Red Hat, CentOS, Debian, FreeBSD, Mandrake, Mac OS, etc.), Windows.
 
-* **Web Server** Apache with mod_php or with PHP in CGI, FastCGI mode (nginx, LiteSpeed and IIS should also work you should change some pieces of code and change the url rewriting to make it work).
+* **Web Server** Apache with mod_php or with PHP in CGI, FastCGI mode (nginx, LiteSpeed and IIS should also work. You might have to change some pieces of code and change the URL rewriting to make it work).
 
-* **URL rewriting extension module** Apache, nginx, LiteSpeed, IIS (for Web.config, you have a [good tutorial here](http://www.phpgenious.com/2010/04/url-rewriting-with-php-and-iis-7/)).
-
-* **Video** [FFmpeg](http://ffmpeg.org)
+* **URL rewriting extension module** [Apache](https://ph7cms.com/doc/en/how-to-install-rewrite-module), nginx, LiteSpeed, IIS (for Web.config, you have a [good tutorial here](http://www.phpgenious.com/2010/04/url-rewriting-with-php-and-iis-7/)).
 
 * **Specific Requirement** Server has to be connected to Internet.
 
 * **Minimum Web Space** 2.0 GB
+
+* **pH7CMS's Video Module Requirement (only if enabled)** [FFmpeg](http://ffmpeg.org)
+
+
+## Installation
+
+  * Github:
+    * Clone pH7CMS from Github `git clone git@github.com:pH7Software/pH7-Social-Dating-CMS.git`
+    * [Install Composer](https://getcomposer.org/doc/00-intro.md)
+    * From a command line opened in the folder, run `composer install` to install pH7CMS's dependencies.
+  * Composer:
+    * [Install Composer](https://getcomposer.org/doc/00-intro.md)
+    * `composer create-project ph7software/ph7cms --prefer-dist ph7cms`
+  * Sourceforge:
+    * Directly download the latest stable version from [Sourceforge](https://sourceforge.net/projects/ph7socialdating/).
+  * Softaculous:
+    * If your Web host offers Softaculous, you might be able to install [pH7CMS in one-click with Softaculous](http://www.softaculous.com/softwares/socialnetworking/pH7CMS).
 
 
 ## Nginx Configuration
@@ -135,10 +157,9 @@ location / {
 }
 ```
 
-*Please note that the above code is the strict minimum and obviously you can add more by comparing with the [main Apache .htaccess file](https://github.com/pH7Software/pH7-Social-Dating-CMS/blob/master/.htaccess).*
+*Please note that the above code is the strict minimum and obviously you can add more rules by comparing with the [main Apache .htaccess file](https://github.com/pH7Software/pH7-Social-Dating-CMS/blob/master/.htaccess).*
 
-
-Now in your nginx server configuration you will have to include `ph7cms.conf` file to complete the configuration like below:
+Finally, in your nginx server configuration, you will have to include `ph7cms.conf` file to complete the configuration like below:
 
 In file, e.g., *`/etc/nginx/sites-enabled/yoursite.conf`* for Ubuntu and other OS based on Debian or `/etc/nginx/conf.d/yoursite.conf` for CentOS and other OS based on Red Hat.
 
@@ -161,8 +182,8 @@ server {
 ```
 
 For more information, please refer to the nginx documentation.
-
 <br />
+
 ![Create Your Own Niche Dating Service in New York City](https://cloud.githubusercontent.com/assets/1325411/19419480/65738a1e-93d0-11e6-9fbe-a48fa36fc53a.png)
 
 
@@ -173,12 +194,12 @@ You can find and add other languages on the [I18N repo](https://github.com/pH7So
 
 ## Author
 
-Pierre-Henry Soria
+Coded & Designed with lots of ❤️ by [Pierre-Henry Soria](http://ph7.me). A passionate Belgian software engineer 🍫🍺
 
 
-## Website
+## Official Website
 
-**[Social Dating Script](http://ph7cms.com)**
+[pH7CMS.com](http://ph7cms.com)
 
 
 ## Documentation
@@ -188,28 +209,31 @@ Pierre-Henry Soria
 
 ## Contributing
 
-![I Love Open Source](static/img/logo-lightbg.png)
+![I Love Open Source](static/img/love-open-source-logo.png)
 
-Everyone can contribute on **[pH7CMS GitHub](http://github.com/pH7Software/pH7-Social-Dating-CMS)** repository.
+Anyone can contribute on **[pH7CMS GitHub](https://github.com/pH7Software/pH7-Social-Dating-CMS)** repository!
 
 Finding bugs, improving the CMS/doc or adding translations. Any contribution is welcome and highly appreciated!
 
 Just clone the repository, make your changes and then make a push ;-)
 
-*WARNING, your code/modification must be of excellent quality and follow the [Code Convention](http://ph7cms.com/doc/en/code-convention).* I manually validate all the improvements and changes.
+*WARNING, your code/modification must be of excellent quality and follow the [Code Convention](http://ph7cms.com/doc/en/code-convention) and [PSR](https://www.php-fig.org/psr/).* I manually validate all the improvements and changes.
 
-You will also be eligible to [pH7CMS VIP members](http://ph7cms.com/get-one-tine-license-for-free/) and get all premium contents.
+**You will also become a pH7CMS VIP member and get all exclusive premium contents and upcoming modules.**
+
+
+![Beautiful Profile Dating Page](https://user-images.githubusercontent.com/1325411/35779585-68f0d5fc-09c7-11e8-91eb-bf793fcfab6e.png)
 
 
 ## Tools/Software Used to Develop pH7CMS
 
 * LAMP on **Fedora/Ubuntu** (and Windows/Mac with WampServer/MAMP for testing purpose)
 
-* **Geany &amp; Sublime Text** for coding the whole project. That's It
+* **Geany &amp; Sublime Text** for coding the whole project. That's it! However, since pH7CMS 5.0, PhpStorm (and sometimes Atom) are used as well.
 
 * **GIMP** for editing the assets, etc.
 
-* **Trimage** (and ImageOptim when developing on Mac) for compressing &amp; optimizing the images
+* **Trimage** (and **ImageOptim** when developing on Mac) for compressing &amp; optimizing the images
 
 * **Poedit** for translating the Gettext files
 
@@ -217,15 +241,12 @@ You will also be eligible to [pH7CMS VIP members](http://ph7cms.com/get-one-tine
 
 * **Git** for the version control system
 
+* Sometimes, when working on Mac, **Sequel Pro** is used to lookup easily at a database.
+
 
 ## Contact
 
-You can send email for any suggestions or comments at: *hello {AT} ph7cms {D0T} com*
-
-
-## Help & Modifications
-
-If you need, you can get a **Premium Commercial Support** at *[HiZup Support Department](http://clients.hizup.com/support)*
+You can send me an email for any suggestions or feedback at: *hello {AT} ph7cms {D0T} com* OR *hi {AT} ph7 {D0T} me*
 
 
 ## License
@@ -235,5 +256,5 @@ If you need, you can get a **Premium Commercial Support** at *[HiZup Support Dep
 License: [General Public License 3](http://www.gnu.org/licenses/gpl.html) or later; See the *PH7.LICENSE.txt* and *PH7.COPYRIGHT.txt* files for more details.
 
 
-![Admin Panel, Browse Users](https://cloud.githubusercontent.com/assets/1325411/14080251/b476e5c6-f4fb-11e5-825e-ddc992ba1055.png)
 ![pH7CMS allows anyone to start a web dating app like Tinder/Bumble or Badoo](https://cloud.githubusercontent.com/assets/1325411/19419477/5476b45c-93d0-11e6-823d-d293f186c0f7.png)
+![Admin Panel, Browse Users](https://cloud.githubusercontent.com/assets/1325411/14080251/b476e5c6-f4fb-11e5-825e-ddc992ba1055.png)

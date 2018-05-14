@@ -3,16 +3,18 @@
  * @title            PayPal Class
  *
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Payment / Gateway / Api
- * @version          1.1
+ * @version          1.3
  */
 
 namespace PH7\Framework\Payment\Gateway\Api;
+
 defined('PH7') or exit('Restricted access');
 
-use PH7\Framework\File\Stream, PH7\Framework\Url\Url;
+use PH7\Framework\File\Stream;
+use PH7\Framework\Url\Url;
 
 /**
  * PayPal class using PayPal's API
@@ -21,21 +23,35 @@ use PH7\Framework\File\Stream, PH7\Framework\Url\Url;
  */
 class Paypal extends Provider implements Api
 {
+    const SANDBOX_PAYMENT_URL = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
+    const PAYMENT_URL = 'https://www.paypal.com/cgi-bin/webscr';
 
-    private
-    $_sUrl = 'https://www.paypal.com/cgi-bin/webscr',
-    $_sRequest = 'cmd=_notify-validate',
-    $_sMsg,
-    $_bValid = null;
+    /* Should we accept valid transactions but hasn't been completed yet? */
+    const ACCEPT_VALID_PAYMENT_NOT_COMPLETED = true;
+
+    /** @var string */
+    private $sUrl;
+
+    /** @var string */
+    private $sRequest = 'cmd=_notify-validate';
+
+    /** @var string */
+    private $sMsg;
+
+    /** @var bool|null */
+    private $bValid = null;
 
 
     /**
      * @param boolean $bSandbox Default FALSE
-     * @return void
      */
     public function __construct($bSandbox = false)
     {
-        if ($bSandbox) $this->_sUrl = 'https://www.sandbox.paypal.com/cgi-bin/webscr';
+        if ($bSandbox) {
+            $this->sUrl = self::SANDBOX_PAYMENT_URL;
+        } else {
+            $this->sUrl = self::PAYMENT_URL;
+        }
 
         $this->param('cmd', '_xclick');
     }
@@ -43,12 +59,14 @@ class Paypal extends Provider implements Api
     /**
      * Get Checkout URL.
      *
+     * @param string $sParam
+     *
      * @return string
      * @internal We added an empty parameter for the method only to be compatible with the API interface.
      */
     public function getUrl($sParam = '')
     {
-        return $this->_sUrl;
+        return $this->sUrl;
     }
 
     /**
@@ -58,11 +76,14 @@ class Paypal extends Provider implements Api
      */
     public function getMsg()
     {
-        return $this->_sMsg;
+        return $this->sMsg;
     }
 
     /**
      * Check if the transaction is valid.
+     *
+     * @param string $sParam1
+     * @param string $sParam2
      *
      * @return boolean
      * @internal We added two empty parameters for the method only to be compatible with the API interface.
@@ -70,86 +91,90 @@ class Paypal extends Provider implements Api
     public function valid($sParam1 = '', $sParam2 = '')
     {
         // If already validated, just return last result
-        if (true === $this->_bValid || false === $this->_bValid) return $this->_bValid;
+        if (true === $this->bValid || false === $this->bValid) {
+            return $this->bValid;
+        }
 
         $this->setParams();
 
         $mStatus = $this->getStatus();
+        $mStatus = trim($mStatus);
 
-        // Valid
-        if (0 == strcmp('VERIFIED', $mStatus))
-        {
-            if ($_POST['payment_status'] == 'Completed')
-            {
-                $this->_bValid = true;
-                $this->_sMsg = t('Transaction valid and completed.');
+        if (0 === strcmp('VERIFIED', $mStatus)) {
+            // Valid
+            if ($_POST['payment_status'] == 'Completed') {
+                $this->bValid = true;
+                $this->sMsg = t('Transaction valid and completed.');
+            } else {
+                $this->bValid = self::ACCEPT_VALID_PAYMENT_NOT_COMPLETED;
+                $this->sMsg = t('Transaction valid but not completed.');
             }
-            else
-            {
-                $this->_bValid = false;
-                $this->_sMsg = t('Transaction valid but not completed.');
-            }
-        }
-        // Invalid
-        elseif (0 == strcmp('INVALID', $mStatus))
-        {
-            $this->_bValid = false;
-            $this->_sMsg = t('Invalid transaction.');
-        }
-        // Bad Connection
-        else
-        {
-            $this->_bValid = false;
-            $this->_sMsg = t('Connection to PayPal failed.');
+        } elseif (0 === strcmp('INVALID', $mStatus)) {
+            // Bad Connection
+            $this->bValid = false;
+            $this->sMsg = t('Invalid transaction.');
+        } else {
+            // Bad Connection
+            $this->bValid = false;
+            $this->sMsg = t('Connection to PayPal failed.');
         }
 
-        return $this->_bValid;
+        return $this->bValid;
     }
 
     /**
-     * Connect to Paypal.
+     * Connect to PayPal.
      *
-     * @return mixed (boolean | string) Message from the transaction status on success or FALSE on failure.
+     * @return boolean|string Message from the transaction status on success or FALSE on failure.
      */
-     protected function getStatus()
-     {
-         $rCh = curl_init($this->_sUrl);
-         curl_setopt($rCh, CURLOPT_POST, 1);
-         curl_setopt($rCh, CURLOPT_RETURNTRANSFER, 1);
-         curl_setopt($rCh, CURLOPT_POSTFIELDS, $this->_sRequest);
-         curl_setopt($rCh, CURLOPT_SSL_VERIFYPEER, 1);
-         curl_setopt($rCh, CURLOPT_SSL_VERIFYHOST, 2);
-         curl_setopt($rCh, CURLOPT_HTTPHEADER, array('Host: www.paypal.com'));
-         $mRes = curl_exec($rCh);
-         curl_close($rCh);
-         unset($rCh);
+    protected function getStatus()
+    {
+        $rCh = curl_init($this->sUrl);
+        curl_setopt($rCh, CURLOPT_POST, 1);
+        curl_setopt($rCh, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($rCh, CURLOPT_POSTFIELDS, $this->sRequest);
+        curl_setopt($rCh, CURLOPT_SSL_VERIFYPEER, 1);
+        curl_setopt($rCh, CURLOPT_SSL_VERIFYHOST, 2);
+        curl_setopt($rCh, CURLOPT_HTTPHEADER, array('Host: www.paypal.com'));
+        $mRes = curl_exec($rCh);
 
-         return $mRes;
-     }
+        if (curl_errno($rCh) == 60) {
+            // CURLE_SSL_CACERT
+            curl_setopt($rCh, CURLOPT_CAINFO, __DIR__ . '/cert/paypal_api_chain.crt');
+            $mRes = curl_exec($rCh);
+        }
+
+        curl_close($rCh);
+        unset($rCh);
+
+        return $mRes;
+    }
 
     /**
      * Set the data parameters POST from PayPal system.
      *
-     * @return object this
+     * @return self
      */
-     protected function setParams()
-     {
-         foreach ($this->getPostDatas() as $sKey => $sValue)
-             $this->setUrlData($sKey, $sValue);
+    protected function setParams()
+    {
+        foreach ($this->getPostDatas() as $sKey => $sValue) {
+            $this->setUrlData($sKey, $sValue);
+        }
 
-         return $this;
-     }
+        return $this;
+    }
 
     /**
      * Set data URL e.g., "&key=value"
      *
      * @param string $sName
      * @param string $sValue
-     * @return object this
+     *
+     * @return self
      */
     protected function setUrlData($sName, $sValue)
     {
-        $this->_sRequest .= '&' . $sName . '=' . Url::encode($sValue);
+        $this->sRequest .= '&' . $sName . '=' . Url::encode($sValue);
         return $this;
     }
 
@@ -164,16 +189,14 @@ class Paypal extends Provider implements Api
         $aRawPost = explode('&', $rRawPost);
         $aPostData = array();
 
-        foreach ($aRawPost as $sKeyVal)
-        {
-            $aKeyVal = explode ('=', $sKeyVal);
-            if (count($aKeyVal) == 2)
-                $aPostData[$aKeyVal[0]] = Url::encode($aKeyVal[1]);
-            unset($aKeyVal);
+        foreach ($aRawPost as $sKeyVal) {
+            $aKeyVal = explode('=', $sKeyVal);
+            if (count($aKeyVal) === 2) {
+                $aPostData[$aKeyVal[0]] = Url::decode($aKeyVal[1]);
+            }
         }
         unset($aRawPost);
 
         return $aPostData;
     }
-
 }

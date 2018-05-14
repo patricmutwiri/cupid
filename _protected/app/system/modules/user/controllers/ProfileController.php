@@ -3,59 +3,80 @@
  * @title          Profile Controller
  *
  * @author         Pierre-Henry Soria <hello@ph7cms.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / User / Controller
- * @version        1.6
  */
+
 namespace PH7;
 
-use
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Analytics\Statistic,
-PH7\Framework\Parse\Emoticon,
-PH7\Framework\Security\Ban\Ban,
-PH7\Framework\Math\Measure\Year,
-PH7\Framework\Security\CSRF\Token,
-PH7\Framework\Geo\Map\Map,
-PH7\Framework\Url\Url,
-PH7\Framework\Mvc\Router\Uri,
-PH7\Framework\Date\Various as VDate;
+use PH7\Framework\Analytics\Statistic;
+use PH7\Framework\Date\Various as VDate;
+use PH7\Framework\Geo\Map\Map;
+use PH7\Framework\Http\Http;
+use PH7\Framework\Layout\Html\Meta;
+use PH7\Framework\Math\Measure\Year;
+use PH7\Framework\Module\Various as SysMod;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Parse\Emoticon;
+use PH7\Framework\Security\Ban\Ban;
+use PH7\Framework\Security\CSRF\Token;
+use PH7\Framework\Url\Header;
+use PH7\Framework\Url\Url;
+use stdClass;
 
 class ProfileController extends Controller
 {
-    private $sUserAuth, $sUsername, $sTitle, $iProfileId, $iVisitorId;
+    const MAP_ZOOM_LEVEL = 12;
+    const MAP_WIDTH_SIZE = '100%';
+    const MAP_HEIGHT_SIZE = '300px';
+
+    /** @var bool */
+    private $bUserAuth;
+
+    /** @var string */
+    private $sUsername;
+
+    /** @var string */
+    private $sTitle;
+
+    /** @var int */
+    private $iProfileId;
+
+    /** @var int */
+    private $iVisitorId;
 
     public function __construct()
     {
         parent::__construct();
-        $this->sUserAuth = User::auth();
+
+        $this->bUserAuth = User::auth();
     }
 
     public function index()
     {
         $oUserModel = new UserModel;
 
-        // Add the General and Tabs Menu stylesheets
-        $this->design->addCss(PH7_LAYOUT, PH7_TPL . PH7_TPL_NAME . PH7_SH . PH7_CSS . 'tabs.css,' . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_CSS . 'general.css');
-        // Add the JavaScript file for the Ajax Friend
-        $this->design->addJs(PH7_LAYOUT . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_JS, 'friend.js');
+        $this->addCssFiles();
+        $this->addAdditionalAssetFiles();
 
         // Set the Profile username
         $this->sUsername = $this->httpRequest->get('username', 'string');
 
         // Set the Profile ID and Visitor ID
-        $this->iProfileId = $oUserModel->getId(null, $this->sUsername);;
-        $this->iVisitorId = (int) $this->session->get('member_id');
+        $this->iProfileId = $oUserModel->getId(null, $this->sUsername);
+        $this->iVisitorId = (int)$this->session->get('member_id');
 
         // Read the Profile information
         $oUser = $oUserModel->readProfile($this->iProfileId);
 
-        if (!empty($oUser->username) && $this->str->equalsIgnoreCase($this->sUsername, $oUser->username))
-        {
+        if ($oUser && $this->doesProfileExist($oUser)) {
+            $this->redirectToOtherProfileStyleIfEnabled();
+
             // The administrators can view all profiles and profile visits are not saved.
-            if (!AdminCore::auth()) {
-                $this->initPrivacy($oUserModel, $this->iProfileId, $this->iVisitorId);
+            if (!AdminCore::auth() || UserCore::isAdminLoggedAs()) {
+                $this->initPrivacy($oUserModel);
             }
 
             // Gets the Profile background
@@ -65,14 +86,14 @@ class ProfileController extends Controller
 
             unset($oUserModel);
 
-            $sFirstName = (!empty($oUser->firstName)) ? $this->str->escape($this->str->upperFirst($oUser->firstName), true) : '';
-            $sLastName = (!empty($oUser->lastName)) ? $this->str->escape($this->str->upperFirst($oUser->lastName), true) : '';
-            $sMiddleName = (!empty($oFields->middleName)) ? $this->str->escape($this->str->upperFirst($oFields->middleName), true) : '';
+            $sFirstName = !empty($oUser->firstName) ? $this->str->escape($this->str->upperFirst($oUser->firstName), true) : '';
+            $sLastName = !empty($oUser->lastName) ? $this->str->escape($this->str->upperFirst($oUser->lastName), true) : '';
+            $sMiddleName = !empty($oFields->middleName) ? $this->str->escape($this->str->upperFirst($oFields->middleName), true) : '';
 
-            $sCountry = (!empty($oFields->country)) ? $oFields->country : '';
-            $sCity = (!empty($oFields->city)) ? $this->str->escape($this->str->upperFirst($oFields->city), true) : '';
-            $sState = (!empty($oFields->state)) ? $this->str->escape($this->str->upperFirst($oFields->state), true) : '';
-            $sDescription = (!empty($oFields->description)) ? Emoticon::init(Ban::filterWord($oFields->description)) : '';
+            $sCountry = !empty($oFields->country) ? $oFields->country : '';
+            $sCity = !empty($oFields->city) ? $this->str->escape($this->str->upperFirst($oFields->city), true) : '';
+            $sState = !empty($oFields->state) ? $this->str->escape($this->str->upperFirst($oFields->state), true) : '';
+            $sDescription = !empty($oFields->description) ? Emoticon::init(Ban::filterWord($oFields->description)) : '';
 
             // Age
             $this->view->birth_date = $oUser->birthDate;
@@ -80,25 +101,11 @@ class ProfileController extends Controller
             $aAge = explode('-', $oUser->birthDate);
             $iAge = (new Year($aAge[0], $aAge[1], $aAge[2]))->get();
 
-            // Links of the Menubar
-            $iNbFriend = FriendModel::total($this->iProfileId);
-            $sNbFriend = ($iNbFriend > 0) ? ' (' . $iNbFriend . ')' : '';
-            $sFriendTxt = ($iNbFriend <= 1) ? ($iNbFriend == 1) ? t('Friend:') : t('No Friends') :
-                t('Friends:');
-
-            if ($this->sUserAuth) {
-                $iNbMutFriend = (new FriendModel)->get($this->iVisitorId, $this->iProfileId, null, true, null, null, null, null);
-                $sNbMutFriend = ($iNbMutFriend > 0) ? ' (' . $iNbMutFriend . ')' : '';
-                $sMutFriendTxt = ($iNbMutFriend <= 1) ? ($iNbMutFriend == 1) ? t('Mutual Friend:') : t('No Mutual Friends') : t('Mutuals Friends:');
-            }
-
             $this->view->page_title = t('Meet %0%, A %1% looking for %2% - %3% years - %4% - %5% %6%',
                 $sFirstName, t($oUser->sex), t($oUser->matchSex), $iAge, t($sCountry), $sCity, $sState);
 
             $this->view->meta_description = t('Meet %0% %1% | %2% - %3%', $sFirstName, $sLastName,
                 $oUser->username, substr($sDescription, 0, 100));
-
-            $this->design->smartAppBanner($this->view);
 
             $this->view->h1_title = t('Meet <span class="pH1">%0%</span> on <span class="pH0">%site_name%</span>',
                 $sFirstName);
@@ -106,20 +113,9 @@ class ProfileController extends Controller
             $this->view->h2_title = t('A <span class="pH1">%0%</span> of <span class="pH3">%1% years</span>, from <span class="pH2">%2%, %3% %4%</span>',
                 t($oUser->sex), $iAge, t($sCountry), $sCity, $sState);
 
+            $this->setMenuBar($sFirstName, $oUser);
 
-            $this->view->avatarDesign = new AvatarDesignCore; // Avatar Design Class
-
-            // Member Menubar
-            $this->view->friend_link = $sFriendTxt . $sNbFriend;
-            if ($this->sUserAuth) {
-                $this->view->mutual_friend_link = $sMutFriendTxt . $sNbMutFriend;
-            }
-            $this->view->mail_link = $this->getMailLink($sFirstName, $oUser);
-            $this->view->messenger_link = $this->getMessengerLink($sFirstName, $oUser);
-            $this->view->befriend_link = $this->getFriendLink($sFirstName, $oUser);
-
-            // Set parameters Google Map
-            $this->view->map = $this->getMap($sCity, $sState, $sCountry, $oUser);
+            $this->view->map = $this->getMap($sCity, $sCountry, $oUser);
 
             $this->view->id = $this->iProfileId;
             $this->view->username = $oUser->username;
@@ -138,14 +134,12 @@ class ProfileController extends Controller
             $this->view->join_date = VDate::textTimeStamp($oUser->joinDate);
             $this->view->last_activity = VDate::textTimeStamp($oUser->lastActivity);
             $this->view->fields = $oFields;
-            $this->view->is_logged = $this->sUserAuth;
+            $this->view->is_logged = $this->bUserAuth;
             $this->view->is_own_profile = $this->isOwnProfile();
 
-            // Stat Profile
-            Statistic::setView($this->iProfileId, 'Members');
-        }
-        else
-        {
+            // Count number of views
+            Statistic::setView($this->iProfileId, DbTableName::MEMBER);
+        } else {
             $this->notFound();
         }
 
@@ -156,81 +150,92 @@ class ProfileController extends Controller
      * Get the Google Map.
      *
      * @param string $sCity
-     * @param string $sState
      * @param string $sCountry
-     * @param object $oUser
+     * @param stdClass $oUser
+     *
      * @return string The Google Maps code.
      */
-    private function getMap($sCity, $sState, $sCountry, $oUser)
+    private function getMap($sCity, $sCountry, stdClass $oUser)
     {
+        $sFullAddress = $sCity . ' ' . t($sCountry);
+        $sMarkerText = t('Meet <b>%0%</b> near here!', $oUser->username);
+
         $oMap = new Map;
         $oMap->setKey(DbConfig::getSetting('googleApiKey'));
-        $oMap->setCenter($sCity . ' ' . $sState . ' ' . t($sCountry));
-        $oMap->setSize('100%', '300px');
+        $oMap->setCenter($sFullAddress);
+        $oMap->setSize(self::MAP_WIDTH_SIZE, self::MAP_HEIGHT_SIZE);
         $oMap->setDivId('profile_map');
-        $oMap->setZoom(12);
-        $oMap->addMarkerByAddress($sCity . ' ' . $sState . ' ' . t($sCountry), t('Meet %0% near here!', $oUser->username));
+        $oMap->setZoom(self::MAP_ZOOM_LEVEL);
+        $oMap->addMarkerByAddress($sFullAddress, $sMarkerText, $sMarkerText);
         $oMap->generate();
-        $map = $oMap->getMap();
+        $sMap = $oMap->getMap();
         unset($oMap);
 
-        return $map;
+        return $sMap;
     }
 
     /**
      * Privacy Profile.
      *
-     * @param \PH7\UserModel $oUserModel
+     * @param UserCoreModel $oUserModel
+     *
      * @return void
+     *
+     * @throws Framework\File\Exception
      */
     private function initPrivacy(UserModel $oUserModel)
     {
         // Check Privacy Profile
         $oPrivacyViewsUser = $oUserModel->getPrivacySetting($this->iProfileId);
 
-        if ($oPrivacyViewsUser->searchProfile == 'no')
-        {
-            // Exclude profile of search engines
-            $this->view->header = Framework\Layout\Html\Meta::NOINDEX;
+        if ($oPrivacyViewsUser->searchProfile === 'no') {
+            $this->excludeProfileFromSearchEngines();
         }
 
-        if (!$this->sUserAuth && $oPrivacyViewsUser->privacyProfile == 'only_members')
-        {
-            $this->view->error = t('Whoops! The "%0%" profile is only visible to members. Please <a href="%1%">login</a> or <a href="%2%">register</a> to see this profile.',
+        if (!$this->bUserAuth && $oPrivacyViewsUser->privacyProfile === 'only_members') {
+            $this->view->error = t('Whoops! "%0%" profile is only visible to members. Please <a href="%1%">login</a> or <a href="%2%">register</a> to see this profile.',
                 $this->sUsername, Uri::get('user', 'main', 'login'), Uri::get('user', 'signup', 'step1'));
-        }
-        elseif ($oPrivacyViewsUser->privacyProfile == 'only_me' && !$this->isOwnProfile())
-        {
-            $this->view->error = t('Whoops! The "%0%" profile is not available to you.', $this->sUsername);
+        } elseif ($oPrivacyViewsUser->privacyProfile === 'only_me' && !$this->isOwnProfile()) {
+            $this->view->error = t('Whoops! "%0%" profile is not available to you.', $this->sUsername);
         }
 
         // Update the "Who's Viewed Your Profile"
-        if ($this->sUserAuth)
-        {
+        if ($this->bUserAuth) {
             $oPrivacyViewsVisitor = $oUserModel->getPrivacySetting($this->iVisitorId);
 
-            if ($oPrivacyViewsUser->userSaveViews == 'yes' && $oPrivacyViewsVisitor->userSaveViews == 'yes' && !$this->isOwnProfile())
-            {
-                $oVisitorModel = new VisitorModel($this->iProfileId, $this->iVisitorId, $this->dateTime->get()->dateTime('Y-m-d H:i:s'));
-
-                if (!$oVisitorModel->already())
-                {
-                    // Add a new visit
-                    $oVisitorModel->set();
-                }
-                else
-                {
-                    // Update the date of last visit
-                    $oVisitorModel->update();
-                }
-                unset($oVisitorModel);
+            if ($oPrivacyViewsUser->userSaveViews === 'yes' &&
+                $oPrivacyViewsVisitor->userSaveViews === 'yes' &&
+                !$this->isOwnProfile()
+            ) {
+                $this->updateVisitorViews();
             }
         }
         unset($oPrivacyViewsUser, $oPrivacyViewsVisitor);
     }
 
     /**
-     * @return boolean TRUE if the user is on their own profile, FALSE otherwise.
+     * @return void
+     */
+    private function updateVisitorViews()
+    {
+        $oVisitorModel = new VisitorModel(
+            $this->iProfileId,
+            $this->iVisitorId,
+            $this->dateTime->get()->dateTime('Y-m-d H:i:s')
+        );
+
+        if (!$oVisitorModel->already()) {
+            // Add a new visit
+            $oVisitorModel->set();
+        } else {
+            // Update the date of last visit
+            $oVisitorModel->update();
+        }
+        unset($oVisitorModel);
+    }
+
+    /**
+     * @return bool TRUE if the user is on their own profile, FALSE otherwise.
      */
     private function isOwnProfile()
     {
@@ -238,75 +243,99 @@ class ProfileController extends Controller
     }
 
     /**
+     * @param string $sFirstName
+     * @param stdClass $oUser
      *
-     * @param string $sFirstName  User's first name.
-     * @param object $oUser       User data from the DB.
-     * @return string             The anchor for the link.
+     * @return void
      */
-    private function getMailLink($sFirstName, $oUser)
+    private function setMenuBar($sFirstName, stdClass $oUser)
     {
-        if ($this->sUserAuth)
-        {
-            $sMailLink = Uri::get('mail', 'main', 'compose', $oUser->username);
+        $this->view->mail_link = $this->getMailLink($sFirstName, $oUser);
+        $this->view->messenger_link = $this->getMessengerLink($sFirstName, $oUser);
+
+        if (SysMod::isEnabled('friend')) {
+            $this->view->friend_link = $this->getFriendLinkName();
+
+            if ($this->bUserAuth) {
+                $this->view->mutual_friend_link = $this->getMutualFriendLinkName();
+            }
+
+            $this->view->befriend_link = $this->getBeFriendLink($sFirstName, $oUser);
         }
-        else
-        {
+    }
+
+    /**
+     * @param string $sFirstName User's first name.
+     * @param stdClass $oUser User data from the DB.
+     *
+     * @return string The anchor for the link.
+     */
+    private function getMailLink($sFirstName, stdClass $oUser)
+    {
+        if ($this->bUserAuth) {
+            $sMailLink = Uri::get('mail', 'main', 'compose', $oUser->username);
+        } else {
             $aUrlParms = [
-                'msg' => t('You need to free register for send a message to %0%.', $sFirstName),
+                'msg' => t('Register for free in order to message %0%.', $sFirstName),
                 'ref' => 'profile',
                 'a' => 'mail',
                 'u' => $oUser->username,
                 'f_n' => $sFirstName,
                 's' => $oUser->sex
             ];
-            $sMailLink = Uri::get('user', 'signup', 'step1', '?' . Url::httpBuildQuery($aUrlParms), false);
+            $sMailLink = Uri::get(
+                'user',
+                'signup',
+                'step1', '?' . Url::httpBuildQuery($aUrlParms),
+                false
+            );
         }
 
         return $sMailLink;
     }
 
     /**
+     * @param string $sFirstName User's first name.
+     * @param stdClass $oUser User data from the DB.
      *
-     * @param string $sFirstName  User's first name.
-     * @param object $oUser       User data from the DB.
-     * @return string             The anchor for the link.
+     * @return string The anchor for the link.
      */
-    private function getMessengerLink($sFirstName, $oUser)
+    private function getMessengerLink($sFirstName, stdClass $oUser)
     {
-        if ($this->sUserAuth)
-        {
+        if ($this->bUserAuth) {
             $sMessengerLink = 'javascript:void(0)" onclick="Messenger.chatWith(\'' . $oUser->username . '\')';
-        }
-        else
-        {
+        } else {
             $aUrlParms = [
-                'msg' => t('You need to free register for talk to %0%.', $sFirstName),
+                'msg' => t('Register now to talk to %0%.', $sFirstName),
                 'ref' => 'profile',
                 'a' => 'messenger',
                 'u' => $oUser->username,
                 'f_n' => $sFirstName,
                 's' => $oUser->sex
             ];
-            $sMessengerLink = Uri::get('user', 'signup', 'step1', '?' . Url::httpBuildQuery($aUrlParms), false);
+            $sMessengerLink = Uri::get(
+                'user',
+                'signup',
+                'step1',
+                '?' . Url::httpBuildQuery($aUrlParms),
+                false
+            );
         }
 
         return $sMessengerLink;
     }
 
     /**
+     * @param string $sFirstName User's first name.
+     * @param stdClass $oUser User data from the DB.
      *
-     * @param string $sFirstName  User's first name.
-     * @param object $oUser       User data from the DB.
-     * @return string             The anchor for the link.
+     * @return string The anchor for the link.
      */
-    private function getFriendLink($sFirstName, $oUser)
+    private function getBeFriendLink($sFirstName, stdClass $oUser)
     {
-        if ($this->sUserAuth)
-        {
-            $sBefriendLink = 'javascript:void(0)" onclick="friend(\'add\',' . $this->iProfileId . ',\''.(new Token)->generate('friend').'\')';
-        }
-        else
-        {
+        if ($this->bUserAuth) {
+            $sBefriendLink = 'javascript:void(0)" onclick="friend(\'add\',' . $this->iProfileId . ',\'' . (new Token)->generate('friend') . '\')';
+        } else {
             $aUrlParms = [
                 'msg' => t('Free Sign up for %site_name% to become friend with %0%.', $sFirstName),
                 'ref' => 'profile',
@@ -315,29 +344,132 @@ class ProfileController extends Controller
                 'f_n' => $sFirstName,
                 's' => $oUser->sex
             ];
-            $sBefriendLink = Uri::get('user', 'signup', 'step1', '?' . Url::httpBuildQuery($aUrlParms), false);
+            $sBefriendLink = Uri::get(
+                'user',
+                'signup',
+                'step1', '?' . Url::httpBuildQuery($aUrlParms),
+                false
+            );
         }
 
         return $sBefriendLink;
     }
 
     /**
-     * Show a Not Found page.
+     * @return string
+     */
+    private function getFriendLinkName()
+    {
+        $iNbFriend = FriendCoreModel::total($this->iProfileId);
+        $sNbFriend = $iNbFriend > 0 ? ' (' . $iNbFriend . ')' : '';
+        $sFriendTxt = $iNbFriend <= 1 ? ($iNbFriend == 1) ? t('Friend:') : t('No Friends') : t('Friends:');
+
+        return $sFriendTxt . $sNbFriend;
+    }
+
+    /**
+     * @return string
+     */
+    private function getMutualFriendLinkName()
+    {
+        $iNbMutFriend = (new FriendCoreModel)->get(
+            $this->iVisitorId,
+            $this->iProfileId,
+            null,
+            true,
+            null,
+            null,
+            null,
+            null
+        );
+        $sNbMutFriend = $iNbMutFriend > 0 ? ' (' . $iNbMutFriend . ')' : '';
+        $sMutFriendTxt = $iNbMutFriend <= 1 ? ($iNbMutFriend == 1) ? t('Mutual Friend:') : t('No Mutual Friends') : t('Mutual Friends:');
+
+        return $sMutFriendTxt . $sNbMutFriend;
+    }
+
+    /**
+     * @param stdClass $oUser
+     *
+     * @return bool
+     */
+    private function doesProfileExist(stdClass $oUser)
+    {
+        return !empty($oUser->username) && $this->str->equalsIgnoreCase($this->sUsername, $oUser->username);
+    }
+
+    /**
+     * Set noindex meta tag to exclude the profile from search engines.
      *
      * @return void
      */
+    private function excludeProfileFromSearchEngines()
+    {
+        $this->view->header = Meta::NOINDEX;
+    }
+
+    /**
+     * @return void
+     *
+     * @throws Framework\File\Exception
+     */
+    private function redirectToOtherProfileStyleIfEnabled()
+    {
+        if (SysMod::isEnabled('cool-profile-page')) {
+            // If enabled, redirect to the other profile page style
+            Header::redirect(
+                Uri::get('cool-profile-page', 'main', 'index', $this->iProfileId)
+            );
+        }
+    }
+
+    /**
+     * Add the General and Tabs Menu stylesheets.
+     *
+     * @return void
+     */
+    private function addCssFiles()
+    {
+        $this->design->addCss(
+            PH7_LAYOUT,
+            PH7_TPL . PH7_TPL_NAME . PH7_SH . PH7_CSS . 'tabs.css,' . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_CSS . 'general.css'
+        );
+    }
+
+    /**
+     * Add the JS file for Friend feature.
+     *
+     * @return void
+     */
+    private function addAdditionalAssetFiles()
+    {
+        if (SysMod::isEnabled('friend')) {
+            $this->design->addJs(
+                PH7_LAYOUT . PH7_SYS . PH7_MOD . 'friend' . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_JS,
+                'friend.js'
+            );
+        }
+    }
+
+    /**
+     * Show a Not Found page.
+     *
+     * @return void
+     *
+     * @throws Framework\Http\Exception
+     */
     private function notFound()
     {
-        Framework\Http\Http::setHeadersByCode(404);
+        Http::setHeadersByCode(self::HTTP_NOT_FOUND_CODE);
 
         /**
-         * @internal We can include HTML tags in the title since the template will erase them before display.
+         * @internal We can include HTML tags in the title since the template will automatically escape them before displaying it.
          */
-        $this->sTitle = t('Whoops! The "%0%" profile is not found.', substr($this->sUsername, 0, PH7_MAX_USERNAME_LENGTH), true);
+        $this->sTitle = t('Whoops! "%0%" profile is not found.', substr($this->sUsername, 0, PH7_MAX_USERNAME_LENGTH), true);
         $this->view->page_title = $this->sTitle;
         $this->view->h2_title = $this->sTitle;
         $this->view->error = '<strong><em>' . t('Suggestions:') . '</em></strong><br />
-        <a href="' . $this->registry->site_url . '">' . t('Return home') . '</a><br />
-        <a href="javascript:history.back();">' . t('Go back to the previous page') . '</a><br />';
+            <a href="' . $this->registry->site_url . '">' . t('Return home') . '</a><br />
+            <a href="javascript:history.back();">' . t('Go back to the previous page') . '</a><br />';
     }
 }

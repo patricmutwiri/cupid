@@ -3,7 +3,7 @@
         {each $category in $categories}
             <h2 class="s_tMarg underline">{% $category->title %}</h2>
             {if AdminCore::auth()}
-                <a class="m_button" href="{{ $design->url('forum', 'admin', 'editcategory', $category->categoryId) }}">{lang 'Edit'}</a> | {{ $design->popupLinkConfirm(t('Delete'), 'forum', 'admin', 'deletecategory', $category->categoryId, 'm_button') }}<br /><br />
+                <a class="btn btn-default btn-sm" href="{{ $design->url('forum', 'admin', 'editcategory', $category->categoryId) }}">{lang 'Edit'}</a> | {{ $design->popupLinkConfirm(t('Delete'), 'forum', 'admin', 'deletecategory', $category->categoryId, 'btn btn-default btn-sm') }}<br /><br />
             {/if}
 
             {each $forum in $forums}
@@ -12,7 +12,7 @@
                     <p>{% escape($forum->description, true) %}</p>
 
                     {if AdminCore::auth()}
-                        <a class="s_button" href="{{ $design->url('forum', 'admin', 'editforum', $forum->forumId) }}">{lang 'Edit'}</a> | {{ $design->popupLinkConfirm(t('Delete'), 'forum', 'admin', 'deleteforum', $forum->forumId, 's_button') }}<br />
+                        <a class="btn btn-default btn-sm" href="{{ $design->url('forum', 'admin', 'editforum', $forum->forumId) }}">{lang 'Edit'}</a> | {{ $design->popupLinkConfirm(t('Delete'), 'forum', 'admin', 'deleteforum', $forum->forumId, 'btn btn-default btn-sm') }}<br /><br />
                     {/if}
                 {/if}
             {/each}
@@ -24,6 +24,9 @@
     {/if}
 
     {if AdminCore::auth()}
-        <br /><hr /><p><a class="btn btn-default btn-tiny" href="{{ $design->url('forum', 'admin', 'addcategory') }}">{lang 'Add Category'}</a> <a class="btn btn-default btn-tiny" href="{{ $design->url('forum', 'admin', 'addforum') }}">{lang 'Add Forum'}</a></p>
+        <br /><hr />
+        <p>
+            <a class="btn btn-default btn-md" href="{{ $design->url('forum', 'admin', 'addcategory') }}">{lang 'Add Category'}</a> <a class="btn btn-default btn-md" href="{{ $design->url('forum', 'admin', 'addforum') }}">{lang 'Add Forum'}</a>
+        </p>
     {/if}
 </div>

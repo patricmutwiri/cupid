@@ -4,17 +4,23 @@
  * @desc           Controller of the Love Calculator Module.
  *
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Love Calculator / Controller
- * @version        1.0
  */
+
 namespace PH7;
 
 class MainController extends Controller
 {
+    /** @var UserCoreModel */
+    private $oUserModel;
 
-    private $oUserModel, $oExists, $sTitle;
+    /** @var ExistsCoreModel */
+    private $oExists;
+
+    /** @var string */
+    private $sTitle;
 
     public function __construct()
     {
@@ -23,8 +29,14 @@ class MainController extends Controller
         $this->oUserModel = new UserCoreModel;
         $this->oExists = new ExistsCoreModel;
 
-        $this->design->addCss(PH7_LAYOUT . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_CSS, 'common.css');
-        $this->design->addJs(PH7_LAYOUT . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_JS, 'common.js');
+        $this->design->addCss(
+            PH7_LAYOUT . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_CSS,
+            'common.css'
+        );
+        $this->design->addJs(
+            PH7_LAYOUT . PH7_SYS . PH7_MOD . $this->registry->module . PH7_SH . PH7_TPL . PH7_TPL_MOD_NAME . PH7_SH . PH7_JS,
+            'common.js'
+        );
     }
 
     public function index()
@@ -34,8 +46,7 @@ class MainController extends Controller
         $sSecondUsername = $this->httpRequest->get('second_username');
 
         // Verifies that the username exists and that both user names are not the same.
-        if ($this->oExists->username($sSecondUsername) && $sUsername != $sSecondUsername)
-        {
+        if ($this->oExists->username($sSecondUsername) && $sUsername != $sSecondUsername) {
             // Get ID
             $iId = $this->session->get('member_id');
             $iSecondId = $this->oUserModel->getId(null, $sSecondUsername);
@@ -69,11 +80,8 @@ class MainController extends Controller
 
             // Display
             $this->output();
-        }
-        else
-        {
+        } else {
             $this->displayPageNotFound(t('No Name Found for the Love Calculator!'));
         }
     }
-
 }

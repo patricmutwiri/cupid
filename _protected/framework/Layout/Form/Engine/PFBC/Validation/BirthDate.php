@@ -1,8 +1,11 @@
 <?php
 /**
- * This code has been made by pH7 (Pierre-Henry SORIA).
+ * Created by Pierre-Henry Soria
  */
+
 namespace PFBC\Validation;
+
+use PH7\Framework\Date\CDateTime;
 use PH7\Framework\Mvc\Model\DbConfig;
 
 class BirthDate extends \PFBC\Validation
@@ -15,7 +18,7 @@ class BirthDate extends \PFBC\Validation
 
         $this->iMin = DbConfig::getSetting('minAgeRegistration');
         $this->iMax = DbConfig::getSetting('maxAgeRegistration');
-        $this->message = t('You must be %0% to %1% years to register on the site.', $this->iMin, $this->iMax );
+        $this->message = t('You must be from %0% to %1% years old to join the service.', $this->iMin, $this->iMax);
     }
 
     /**
@@ -27,6 +30,8 @@ class BirthDate extends \PFBC\Validation
             return true;
         }
 
+        $sValue = (new CDateTime)->get($sValue)->date('m/d/Y');
+
         return $this->oValidate->birthDate($sValue, $this->iMin, $this->iMax);
-   }
+    }
 }

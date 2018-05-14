@@ -1,28 +1,30 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / User / Form
  */
+
 namespace PH7;
 
-use PH7\Framework\Session\Session, PH7\Framework\Registry\Registry;
+use PH7\Framework\Registry\Registry;
+use PH7\Framework\Session\Session;
+use PH7\Framework\Url\Header;
 
 class PrivacyForm
 {
-
     public static function display()
     {
         $oUserModel = new UserCoreModel;
-        $iProfileId = (int) (new Session)->get('member_id');
+        $iProfileId = (int)(new Session)->get('member_id');
 
-        if (isset($_POST['submit_privacy_account']))
-        {
-            if (\PFBC\Form::isValid($_POST['submit_privacy_account']))
+        if (isset($_POST['submit_privacy_account'])) {
+            if (\PFBC\Form::isValid($_POST['submit_privacy_account'])) {
                 new PrivacyFormProcess($iProfileId, $oUserModel);
+            }
 
-            Framework\Url\Header::redirect();
+            Header::redirect();
         }
 
         $oPrivacy = $oUserModel->getPrivacySetting($iProfileId);
@@ -38,11 +40,9 @@ class PrivacyForm
         $oForm->addElement(new \PFBC\Element\HTMLExternal('<h3><u>' . t('Show profile visitors:') . '</u></h3>'));
         $oForm->addElement(new \PFBC\Element\Radio(t('Would you like to display members that have viewed your profile?'), 'user_save_views', array('yes' => t('Yes, display members who viewed my profile (Selecting this option will allow other members to see that you visited their profile).'), 'no' => t('No, don\'t display members who viewed my profile. (Selecting this option will prevent you from seeing who visited your profile).')), array('value' => $oPrivacy->userSaveViews, 'required' => 1)));
         $oForm->addElement(new \PFBC\Element\HTMLExternal('<h3><u>' . t('Presence:') . '</u></h3>'));
-        $oForm->addElement(new \PFBC\Element\Select(t('Your status'), 'user_status', array('1' => t('Online'), '2' => t('Busy'), '3' => t('Away'), '0' => 'Offline'), array('id' => 'status', 'onchange' => 'init_status()', 'value' => $oUserModel->getUserStatus($iProfileId), 'required' => 1)));
-        $oForm->addElement(new \PFBC\Element\HTMLExternal('<div class="user_status right" id="status_div"></div>'));
+        $oForm->addElement(new \PFBC\Element\Select(t('Your status <div class="user_status right" id="status_div"></div>'), 'user_status', array(UserModel::ONLINE_STATUS => t('Online'), UserModel::BUSY_STATUS => t('Busy'), UserModel::AWAY_STATUS => t('Away'), UserModel::OFFLINE_STATUS => 'Offline'), array('id' => 'status', 'onchange' => 'init_status()', 'value' => $oUserModel->getUserStatus($iProfileId), 'required' => 1)));
         $oForm->addElement(new \PFBC\Element\HTMLExternal('<script>$(function(){ init_status() });</script>'));
         $oForm->addElement(new \PFBC\Element\Button);
         $oForm->render();
     }
-
 }

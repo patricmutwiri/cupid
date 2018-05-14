@@ -2,10 +2,11 @@
 /**
  * @title            Benchmark Class
  *
- * @package          PH7 / Framework / Navigation
+ * @package          PH7 / Framework / Benchmark
  *
  * Copyright (c) 2012 Jeremy Perret
- * File Modified by Pierre-Henry Soria, Copyright (c) 2014
+ *
+ * File Modified by Pierre-Henry Soria, Copyright (c) 2014-2018
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,15 +28,20 @@
  */
 
 namespace PH7\Framework\Benchmark;
+
 defined('PH7') or exit('Restricted access');
 
 class Benchmark
 {
+    const SIZE_MODE = 1024;
 
+    /** @var float */
     protected $fStartTime;
 
+    /** @var float */
     protected $fEndTime;
 
+    /** @var int */
     protected $iMemoryUsage;
 
     /**
@@ -62,8 +68,9 @@ class Benchmark
     /**
      * Returns the elapsed time, readable or not
      *
-     * @param  boolean $readable Whether the result must be human readable
-     * @param  string  $format   The format to display (printf format)
+     * @param  bool $raw Whether the result must be human readable
+     * @param  string $format The format to display (printf format)
+     *
      * @return string|float
      */
     public function getTime($raw = false, $format = null)
@@ -74,10 +81,39 @@ class Benchmark
     }
 
     /**
+     * Returns a human readable elapsed time
+     *
+     * @param  float $microtime
+     * @param  string $format The format to display (printf format)
+     * @param  int $round
+     *
+     * @return string
+     */
+    public static function readableElapsedTime($microtime, $format = null, $round = 3)
+    {
+        if ($format === null) {
+            $format = '%.3f%s';
+        }
+
+        if ($microtime >= 1) {
+            $unit = 's';
+            $time = round($microtime, $round);
+        } else {
+            $unit = 'ms';
+            $time = round($microtime * 1000);
+
+            $format = preg_replace('/(%.[\d]+f)/', '%d', $format);
+        }
+
+        return sprintf($format, $time, $unit);
+    }
+
+    /**
      * Returns the memory usage at the end checkpoint
      *
-     * @param  boolean $readable Whether the result must be human readable
-     * @param  string  $format   The format to display (printf format)
+     * @param  bool $raw Whether the result must be human readable
+     * @param  string $format The format to display (printf format)
+     *
      * @return string|float
      */
     public function getMemoryUsage($raw = false, $format = null)
@@ -86,39 +122,24 @@ class Benchmark
     }
 
     /**
-     * Returns the memory peak, readable or not
-     *
-     * @param  boolean $readable Whether the result must be human readable
-     * @param  string  $format   The format to display (printf format)
-     * @return string|float
-     */
-    public function getMemoryPeak($raw = false, $format = null)
-    {
-        $memory = memory_get_peak_usage(true);
-
-        return $raw ? $memory : self::readableSize($memory, $format);
-    }
-
-    /**
      * Returns a human readable memory size
      *
-     * @param   int    $size
-     * @param   string $format   The format to display (printf format)
-     * @param   int    $round
+     * @param   int $size
+     * @param   string $format The format to display (printf format)
+     * @param   int $round
+     *
      * @return  string
      */
     public static function readableSize($size, $format = null, $round = 3)
     {
-        $mod = 1024;
-
-        if (is_null($format)) {
+        if ($format === null) {
             $format = '%.2f%s';
         }
 
-        $units = explode(' ','B Kb Mb Gb Tb');
+        $units = explode(' ', 'B Kb Mb Gb Tb');
 
-        for ($i = 0; $size > $mod; $i++) {
-            $size /= $mod;
+        for ($i = 0; $size > self::SIZE_MODE; $i++) {
+            $size /= self::SIZE_MODE;
         }
 
         if (0 === $i) {
@@ -129,29 +150,17 @@ class Benchmark
     }
 
     /**
-     * Returns a human readable elapsed time
+     * Returns the memory peak, readable or not
      *
-     * @param  float $microtime
-     * @param  string  $format   The format to display (printf format)
-     * @return string
+     * @param  bool $raw Whether the result must be human readable
+     * @param  string $format The format to display (printf format)
+     *
+     * @return string|float
      */
-    public static function readableElapsedTime($microtime, $format = null, $round = 3)
+    public function getMemoryPeak($raw = false, $format = null)
     {
-        if (is_null($format)) {
-            $format = '%.3f%s';
-        }
+        $memory = memory_get_peak_usage(true);
 
-        if ($microtime >= 1) {
-            $unit = 's';
-            $time = round($microtime, $round);
-        } else {
-            $unit = 'ms';
-            $time = round($microtime*1000);
-
-            $format = preg_replace('/(%.[\d]+f)/', '%d', $format);
-        }
-
-        return sprintf($format, $time, $unit);
+        return $raw ? $memory : self::readableSize($memory, $format);
     }
-
 }

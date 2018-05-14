@@ -4,36 +4,30 @@
  * @desc             We define variables.
  *                   Predefined variables can save considerable resources and speeds up the code with respect to variables assigned by through the object's template engine (PH7Tpl).
  *
- * @updated          Last Update 07/02/16 11:02
  * @author           Pierre-Henry Soria <ph7software@gmail.com>
  * @category         PH7 Template Engine
- * @package          PH7 / Framework / Layout / Tpl / Engine / PH7Tpl
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @package          PH7 / Framework / Layout / Tpl / Engine / PH7Tpl / Predefined
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @version          1.0.2
  * @license          CC-BY License - http://creativecommons.org/licenses/by/3.0/
- *
  ***************************************************************************/
 
 namespace PH7\Framework\Layout\Tpl\Engine\PH7Tpl\Predefined;
+
 defined('PH7') or exit('Restricted access');
 
 class Variable extends Predefined
 {
-
     /**
-     * Assign the global variables.
-     *
-     * @return object this
+     * {@inheritdoc}
      */
     public function assign()
     {
         /***** KERNEL VARIABLES *****/
         $this->addVar('software_name', 'self::SOFTWARE_NAME');
         $this->addVar('software_url', 'self::SOFTWARE_WEBSITE');
-        $this->addVar('software_help_url', 'self::SOFTWARE_HELP_URL');
         $this->addVar('software_doc_url', 'self::SOFTWARE_DOC_URL');
-        $this->addVar('software_faq_url', 'self::SOFTWARE_FAQ_URL');
-        $this->addVar('software_forum_url', 'self::SOFTWARE_FORUM_URL');
+        $this->addVar('software_issue_url', 'self::SOFTWARE_ISSUE_URL');
         $this->addVar('software_license_url', 'self::SOFTWARE_LICENSE_KEY_URL');
         $this->addVar('software_version', 'self::SOFTWARE_VERSION');
         $this->addVar('is_valid_license', 'PH7_VALID_LICENSE');
@@ -56,9 +50,6 @@ class Variable extends Predefined
         $this->addVar('url_data_sys_mod', 'PH7_URL_DATA_SYS_MOD');
         $this->addVar('url_data_mod', 'PH7_URL_DATA_MOD');
 
-        /***** EXTENSION *****/
-        $this->addVar('page_ext', 'PH7_PAGE_EXT');
-
         /***** SYSTEM TEMPLATE *****/
         $this->addVar('url_tpl', 'PH7_URL_TPL . PH7_TPL_NAME . PH7_SH');
         $this->addVar('url_tpl_css', 'PH7_URL_TPL . PH7_TPL_NAME . PH7_SH . PH7_CSS');
@@ -76,5 +67,4 @@ class Variable extends Predefined
 
         return $this;
     }
-
 }

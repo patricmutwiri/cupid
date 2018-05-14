@@ -1,78 +1,90 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / User / Form / Processing
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Mvc\Router\Uri,
-PH7\Framework\Url\Header,
-PH7\Framework\Security\Security,
-PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Mvc\Request\Http as HttpRequest;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Security\Security;
+use PH7\Framework\Url\Header;
 
-class LoginFormProcess extends Form
+class LoginFormProcess extends Form implements LoginableForm
 {
-   public function __construct()
-   {
+    const BRUTE_FORCE_SLEEP_DELAY = 1;
+
+    /** @var UserCoreModel */
+    private $oUserModel;
+
+    public function __construct()
+    {
         parent::__construct();
 
-        $oUserModel = new UserCoreModel;
+        $this->oUserModel = new UserCoreModel;
         $oSecurityModel = new SecurityModel;
 
         $sEmail = $this->httpRequest->post('mail');
-        $sPassword = $this->httpRequest->post('password');
+        $sPassword = $this->httpRequest->post('password', HttpRequest::NO_CLEAN);
 
         /** Check if the connection is not locked **/
-        $bIsLoginAttempt = (bool) DbConfig::getSetting('isUserLoginAttempt');
-        $iMaxAttempts = (int) DbConfig::getSetting('maxUserLoginAttempts');
-        $iTimeDelay = (int) DbConfig::getSetting('loginUserAttemptTime');
+        $bIsLoginAttempt = (bool)DbConfig::getSetting('isUserLoginAttempt');
+        $iMaxAttempts = (int)DbConfig::getSetting('maxUserLoginAttempts');
+        $iTimeDelay = (int)DbConfig::getSetting('loginUserAttemptTime');
 
-        if ($bIsLoginAttempt && !$oSecurityModel->checkLoginAttempt($iMaxAttempts, $iTimeDelay, $sEmail, $this->view))
-        {
+        if ($bIsLoginAttempt && !$oSecurityModel->checkLoginAttempt($iMaxAttempts, $iTimeDelay, $sEmail, $this->view)) {
             \PFBC\Form::setError('form_login_user', Form::loginAttemptsExceededMsg($iTimeDelay));
             return; // Stop execution of the method.
         }
 
         // Check Login
-        $sLogin = $oUserModel->login($sEmail, $sPassword);
-        if ($sLogin === 'email_does_not_exist' || $sLogin === 'password_does_not_exist')
-        {
-            sleep(1); // Security against brute-force attack to avoid drowning the server and the database
+        $sLogin = $this->oUserModel->login($sEmail, $sPassword);
+        if ($sLogin === 'email_does_not_exist' || $sLogin === 'password_does_not_exist') {
+            $this->preventBruteForce(self::BRUTE_FORCE_SLEEP_DELAY);
 
-            if ($sLogin === 'email_does_not_exist')
-            {
+            if ($sLogin === 'email_does_not_exist') {
                 $this->enableCaptcha();
-                \PFBC\Form::setError('form_login_user', t('Oops! "%0%" is not associated with any %site_name% account.', escape(substr($sEmail,0,PH7_MAX_EMAIL_LENGTH))));
-                $oSecurityModel->addLoginLog($sEmail, 'Guest', 'No Password', 'Failed! Incorrect Username');
-            }
-            elseif ($sLogin === 'password_does_not_exist')
-            {
-                $oSecurityModel->addLoginLog($sEmail, 'Guest', $sPassword, 'Failed! Incorrect Password');
+                \PFBC\Form::setError('form_login_user', t('Oops! "%0%" is not associated with any %site_name% account.', escape(substr($sEmail, 0, PH7_MAX_EMAIL_LENGTH))));
+                $oSecurityModel->addLoginLog(
+                    $sEmail,
+                    'Guest',
+                    'No Password',
+                    'Failed! Incorrect Username'
+                );
+            } elseif ($sLogin === 'password_does_not_exist') {
+                $oSecurityModel->addLoginLog(
+                    $sEmail,
+                    'Guest',
+                    $sPassword,
+                    'Failed! Incorrect Password'
+                );
 
-                if ($bIsLoginAttempt)
+                if ($bIsLoginAttempt) {
                     $oSecurityModel->addLoginAttempt();
+                }
 
                 $this->enableCaptcha();
                 $sWrongPwdTxt = t('Oops! This password you entered is incorrect.') . '<br />';
                 $sWrongPwdTxt .= t('Please try again (make sure your caps lock is off).') . '<br />';
-                $sWrongPwdTxt .= t('Forgot your password? <a href="%0%">Request a new one</a>.', Uri::get('lost-password','main','forgot','user'));
+                $sWrongPwdTxt .= t('Forgot your password? <a href="%0%">Request a new one</a>.', Uri::get('lost-password', 'main', 'forgot', 'user'));
                 \PFBC\Form::setError('form_login_user', $sWrongPwdTxt);
             }
-        }
-        else
-        {
+        } else {
             $oSecurityModel->clearLoginAttempts();
             $this->session->remove('captcha_user_enabled');
-            $iId = $oUserModel->getId($sEmail);
-            $oUserData = $oUserModel->readProfile($iId);
+            $iId = $this->oUserModel->getId($sEmail);
+            $oUserData = $this->oUserModel->readProfile($iId);
 
-            if ($this->httpRequest->postExists('remember'))
-            {
+            $this->updatePwdHashIfNeeded($sPassword, $oUserData->password, $sEmail);
+
+            if ($this->httpRequest->postExists('remember')) {
                 // We hash again the password
                 (new Framework\Cookie\Cookie)->set(
                     array('member_remember' => Security::hashCookie($oUserData->password), 'member_id' => $oUserData->profileId)
@@ -80,37 +92,39 @@ class LoginFormProcess extends Form
             }
 
             $oUser = new UserCore;
-            if (true !== ($mStatus = $oUser->checkAccountStatus($oUserData)))
-            {
+            if (true !== ($mStatus = $oUser->checkAccountStatus($oUserData))) {
                 \PFBC\Form::setError('form_login_user', $mStatus);
-            }
-            else
-            {
+            } else {
                 $o2FactorModel = new TwoFactorAuthCoreModel('user');
-                if ($o2FactorModel->isEnabled($iId))
-                {
+                if ($o2FactorModel->isEnabled($iId)) {
                     // Store the user ID for 2FA
                     $this->session->set(TwoFactorAuthCore::PROFILE_ID_SESS_NAME, $iId);
 
                     Header::redirect(Uri::get('two-factor-auth', 'main', 'verificationcode', 'user'));
-                }
-                else
-                {
-                    $oUser->setAuth($oUserData, $oUserModel, $this->session, $oSecurityModel);
+                } else {
+                    $oUser->setAuth($oUserData, $this->oUserModel, $this->session, $oSecurityModel);
 
-                    Header::redirect(Uri::get('user','account','index'), t('You are successfully logged in!'));
+                    Header::redirect(Uri::get('user', 'account', 'index'), t('You are successfully logged in!'));
                 }
             }
         }
     }
 
     /**
-     * Enable the Captcha on the login form.
-     *
-     * @return void
+     * {@inheritDoc}
      */
-    protected function enableCaptcha()
+    public function updatePwdHashIfNeeded($sPassword, $sUserPasswordHash, $sEmail)
     {
-        $this->session->set('captcha_user_enabled',1);
+        if ($sNewPwdHash = Security::pwdNeedsRehash($sPassword, $sUserPasswordHash)) {
+            $this->oUserModel->changePassword($sEmail, $sNewPwdHash, DbTableName::MEMBER);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function enableCaptcha()
+    {
+        $this->session->set('captcha_user_enabled', 1);
     }
 }

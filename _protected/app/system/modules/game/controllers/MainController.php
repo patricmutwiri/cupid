@@ -1,30 +1,52 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Game / Controller
  */
+
 namespace PH7;
 
-use PH7\Framework\Navigation\Page;
-use PH7\Framework\Mvc\Model\Statistic as Stat;
+use PH7\Framework\Http\Http;
+use PH7\Framework\Mvc\Model\Statistic as StatModel;
 use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Navigation\Page;
 
 class MainController extends Controller
 {
+    const GAMES_PER_PAGE = 10;
+    const CATEGORIES_PER_PAGE = 10;
+    const ITEMS_MENU_TOP_VIEWS = 5;
+    const ITEMS_MENU_TOP_RATING = 5;
+    const ITEMS_MENU_LATEST = 5;
+    const ITEMS_MENU_CATEGORIES = 10;
+
+    const MAX_CATEGORY_LENGTH_SHOWN = 60;
+    const MAX_TITLE_LENGTH_SHOWN = 100;
+
     /**
-     * @access protected Protected access for the AdminController class derived from this class.
-     * @var object $oGameModel
-     * @var object $sTitle
-     * @var string $$sMetaKeywords
-     * @var integer $iTotalGames
+     * @internal Protected access because AdminController derived class uses these attributes
      */
-    protected $oGameModel, $oPage, $sTitle, $sMetaKeywords, $iTotalGames;
+    /** @var \stdClass */
+    protected $oGameModel;
+
+    /** @var Page */
+    protected $oPage;
+
+    /** @var string */
+    protected $sTitle;
+
+    /** @var string */
+    protected $sMetaKeywords;
+
+    /** @var int */
+    protected $iTotalGames;
 
     public function __construct()
     {
         parent::__construct();
+
         $this->oGameModel = new GameModel;
         $this->oPage = new Page;
 
@@ -34,19 +56,23 @@ class MainController extends Controller
 
     public function index()
     {
-        $this->view->total_pages = $this->oPage->getTotalPages($this->oGameModel->totalGames(), 10);
+        $this->view->total_pages = $this->oPage->getTotalPages(
+            $this->oGameModel->totalGames(), self::GAMES_PER_PAGE
+        );
         $this->view->current_page = $this->oPage->getCurrentPage();
-        $oGames = $this->oGameModel->get(null, null, $this->oPage->getFirstItem(), $this->oPage->getNbItemsByPage());
+        $oGames = $this->oGameModel->get(
+            null,
+            null,
+            $this->oPage->getFirstItem(),
+            $this->oPage->getNbItemsPerPage()
+        );
 
         $this->setMenuVars();
 
-        if (empty($oGames))
-        {
+        if (empty($oGames)) {
             $this->sTitle = t('No Games Found!');
-            $this->_notFound();
-        }
-        else
-        {
+            $this->notFound();
+        } else {
             $this->view->page_title = t('Games Zone - Free Games');
             $this->view->h1_title = t('Games Zone Party');
             $this->view->meta_description = t('Free Games for Gamers, Flash Games, Free Online Games');
@@ -60,28 +86,30 @@ class MainController extends Controller
 
     public function game()
     {
-        $oGame = $this->oGameModel->get(strstr($this->httpRequest->get('title'), '-', true), $this->httpRequest->get('id'), 0, 1);
+        $oGame = $this->oGameModel->get(
+            strstr($this->httpRequest->get('title'), '-', true),
+            $this->httpRequest->get('id'),
+            0,
+            1
+        );
 
-        if (empty($oGame))
-        {
+        if (empty($oGame)) {
             $this->sTitle = t('No Games Found!');
-            $this->_notFound();
-        }
-        else
-        {
-            $this->sTitle = t('Game - %0%', substr($oGame->description, 0, 100));
+            $this->notFound();
+        } else {
+            $this->sTitle = t('Game - %0%', substr($oGame->description, 0, self::MAX_TITLE_LENGTH_SHOWN));
             $this->view->page_title = t('%0% Games Zone - %1%', $oGame->name, $oGame->title);
             $this->view->h1_title = $oGame->title;
             $this->view->meta_description = t('Flash Game - %0%', $this->sTitle);
             $this->view->meta_keywords = $oGame->keywords . $this->sMetaKeywords;
             $this->view->h2_title = $this->sTitle;
             $this->view->downloads = $this->oGameModel->getDownloadStat($oGame->gameId);
-            $this->view->views = Stat::getView($oGame->gameId, 'Games');
+            $this->view->views = StatModel::getView($oGame->gameId, DbTableName::GAME);
 
             $this->view->game = $oGame;
 
             //Set Game Statistics
-            Stat::setView($oGame->gameId, 'Games');
+            StatModel::setView($oGame->gameId, DbTableName::GAME);
         }
 
         $this->output();
@@ -91,23 +119,36 @@ class MainController extends Controller
     {
         $sCategory = str_replace('-', ' ', $this->httpRequest->get('name'));
         $sOrder = $this->httpRequest->get('order');
-        $sSort = $this->httpRequest->get('sort');
+        $iSort = $this->httpRequest->get('sort');
 
-        $this->iTotalGames = $this->oGameModel->category($sCategory, true, $sOrder, $sSort, null, null);
-        $this->view->total_pages = $this->oPage->getTotalPages($this->iTotalGames, 10);
+        $this->iTotalGames = $this->oGameModel->category(
+            $sCategory,
+            true,
+            $sOrder,
+            $iSort,
+            null,
+            null
+        );
+        $this->view->total_pages = $this->oPage->getTotalPages(
+            $this->iTotalGames, self::CATEGORIES_PER_PAGE
+        );
         $this->view->current_page = $this->oPage->getCurrentPage();
 
-        $oSearch = $this->oGameModel->category($sCategory, false, $sOrder, $sSort, $this->oPage->getFirstItem(), $this->oPage->getNbItemsByPage());
+        $oSearch = $this->oGameModel->category(
+            $sCategory,
+            false,
+            $sOrder,
+            $iSort,
+            $this->oPage->getFirstItem(),
+            $this->oPage->getNbItemsPerPage()
+        );
         $this->setMenuVars();
 
-        $sCategoryTxt = substr($sCategory,0,60);
-        if (empty($oSearch))
-        {
+        $sCategoryTxt = substr($sCategory, 0, self::MAX_CATEGORY_LENGTH_SHOWN);
+        if (empty($oSearch)) {
             $this->sTitle = t('No "%0%" category found.', $sCategoryTxt);
-            $this->_notFound();
-        }
-        else
-        {
+            $this->notFound();
+        } else {
             $this->sTitle = t('Search by Category: "%0%" Game', $sCategoryTxt);
             $this->view->page_title = $this->sTitle;
             $this->view->h2_title = $this->sTitle;
@@ -131,21 +172,34 @@ class MainController extends Controller
 
     public function result()
     {
-        $this->iTotalGames = $this->oGameModel->search($this->httpRequest->get('looking'), true, $this->httpRequest->get('order'), $this->httpRequest->get('sort'), null, null);
+        $this->iTotalGames = $this->oGameModel->search(
+            $this->httpRequest->get('looking'),
+            true,
+            $this->httpRequest->get('order'),
+            $this->httpRequest->get('sort'),
+            null,
+            null
+        );
 
-        $this->view->total_pages = $this->oPage->getTotalPages($this->iTotalGames, 10);
+        $this->view->total_pages = $this->oPage->getTotalPages(
+            $this->iTotalGames, self::GAMES_PER_PAGE
+        );
         $this->view->current_page = $this->oPage->getCurrentPage();
 
-        $oSearch = $this->oGameModel->search($this->httpRequest->get('looking'), false, $this->httpRequest->get('order'), $this->httpRequest->get('sort'), $this->oPage->getFirstItem(), $this->oPage->getNbItemsByPage());
+        $oSearch = $this->oGameModel->search(
+            $this->httpRequest->get('looking'),
+            false,
+            $this->httpRequest->get('order'),
+            $this->httpRequest->get('sort'),
+            $this->oPage->getFirstItem(),
+            $this->oPage->getNbItemsPerPage()
+        );
         $this->setMenuVars();
 
-        if (empty($oSearch))
-        {
+        if (empty($oSearch)) {
             $this->sTitle = t('Sorry, Your search returned no results!');
-            $this->_notFound();
-        }
-        else
-        {
+            $this->notFound();
+        } else {
             $this->sTitle = t('Game - Your search returned');
             $this->view->page_title = $this->sTitle;
             $this->view->h2_title = $this->sTitle;
@@ -162,17 +216,14 @@ class MainController extends Controller
 
     public function download()
     {
-        if ($this->httpRequest->getExists('id'))
-        {
+        if ($this->httpRequest->getExists('id')) {
             $iId = $this->httpRequest->get('id');
 
-            if (is_numeric($iId))
-            {
+            if (is_numeric($iId)) {
                 $sFile = @$this->oGameModel->getFile($iId);
                 $sPathFile = PH7_PATH_PUBLIC_DATA_SYS_MOD . 'game/file/' . $sFile;
 
-                if (!empty($sFile) && is_file($sPathFile))
-                {
+                if (!empty($sFile) && is_file($sPathFile)) {
                     $sFileName = basename($sFile);
                     $this->file->download($sPathFile, $sFileName);
                     $this->oGameModel->setDownloadStat($iId);
@@ -182,7 +233,7 @@ class MainController extends Controller
         }
 
         $this->sTitle = t('Wrong download ID specified!');
-        $this->_notFound();
+        $this->notFound();
         $this->manualTplInclude('game.tpl');
         $this->output();
     }
@@ -190,27 +241,38 @@ class MainController extends Controller
     /**
      * Sets the Menu Variables for the template.
      *
-     * @access protected
      * @return void
      */
     protected function setMenuVars()
     {
-        $this->view->top_views = $this->oGameModel->get(null, null, 0, 5, SearchCoreModel::VIEWS);
-        $this->view->top_rating = $this->oGameModel->get(null, null, 0, 5, SearchCoreModel::RATING);
-        $this->view->latest = $this->oGameModel->get(null, null, 0, 5, SearchCoreModel::ADDED_DATE);
-        $this->view->categories = $this->oGameModel->getCategory(null, 0, 50, true);
+        $this->view->top_views = $this->oGameModel->get(
+            null, null, 0, self::ITEMS_MENU_TOP_VIEWS, SearchCoreModel::VIEWS
+        );
+        $this->view->top_rating = $this->oGameModel->get(
+            null, null, 0, self::ITEMS_MENU_TOP_RATING, SearchCoreModel::RATING
+        );
+        $this->view->latest = $this->oGameModel->get(
+            null, null, 0, self::ITEMS_MENU_LATEST, SearchCoreModel::ADDED_DATE
+        );
+        $this->view->categories = $this->oGameModel->getCategory(
+            null, 0, self::ITEMS_MENU_CATEGORIES, true
+        );
     }
 
     /**
      * Set a Not Found Error Message with HTTP 404 Code Status.
      *
      * @return void
+     *
+     * @throws Framework\File\Exception
+     * @throws Framework\Http\Exception
      */
-    private function _notFound()
+    private function notFound()
     {
-        Framework\Http\Http::setHeadersByCode(404);
+        Http::setHeadersByCode(self::HTTP_NOT_FOUND_CODE);
+
         $this->view->page_title = $this->sTitle;
         $this->view->h2_title = $this->sTitle;
-        $this->view->error = $this->sTitle . '<br />' . t('Please return to the <a href="%0%">main game page</a> or <a href="%1%">the previous page</a>.', Uri::get('game','main','index'), 'javascript:history.back();');
+        $this->view->error = $this->sTitle . '<br />' . t('Please return to the <a href="%0%">main game page</a> or <a href="%1%">the previous page</a>.', Uri::get('game', 'main', 'index'), 'javascript:history.back();');
     }
 }

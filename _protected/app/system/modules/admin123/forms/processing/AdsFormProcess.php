@@ -1,26 +1,28 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Admin / From / Processing
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\Mvc\Request\Http,
-PH7\Framework\Mvc\Router\Uri,
-PH7\Framework\Url\Header;
+use PH7\Framework\Cache\Cache;
+use PH7\Framework\Mvc\Model\Design as DesignModel;
+use PH7\Framework\Mvc\Request\Http;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Url\Header;
 
 class AdsFormProcess extends Form
 {
-
     public function __construct()
     {
         parent::__construct();
 
-        $iIsAff = (AdsCore::getTable() == 'AdsAffiliates');
+        $bIsAff = (AdsCore::getTable() === AdsCore::AFFILIATE_AD_TABLE_NAME);
 
         $sTable = AdsCore::getTable();
         $sTitle = $this->httpRequest->post('title');
@@ -31,12 +33,24 @@ class AdsFormProcess extends Form
 
         (new AdsCoreModel)->add($sTitle, $sCode, $iWidth, $iHeight, $sTable);
 
-        /* Clean AdminCoreModel Ads and Model\Design for STATIC data */
-        (new Framework\Cache\Cache)->start(Framework\Mvc\Model\Design::CACHE_STATIC_GROUP, null, null)->clear()
-        ->start(AdsCoreModel::CACHE_GROUP, 'totalAds' . ($iIsAff ? 'Affiliates' : ''), null)->clear();
+        $this->clearCache($bIsAff);
 
-        $sSlug = ($iIsAff) ? 'affiliate' : '';
+        $sSlug = $bIsAff ? 'affiliate' : '';
         Header::redirect(Uri::get(PH7_ADMIN_MOD, 'setting', 'ads', $sSlug), t('The banner has been added!'));
     }
 
+    /**
+     * Clean AdminCoreModel Ads and Model\Design for STATIC data.
+     *
+     * @param bool $bIsAffiliate
+     *
+     * @return void
+     */
+    private function clearCache($bIsAffiliate)
+    {
+        (new Cache)
+            ->start(DesignModel::CACHE_STATIC_GROUP, null, null)->clear()
+            ->start(AdsCoreModel::CACHE_GROUP, 'totalAds' . ($bIsAffiliate ? DbTableName::AFFILIATE : ''), null)
+            ->clear();
+    }
 }

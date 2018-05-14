@@ -1,29 +1,46 @@
 <?php
 /**
- * We made many changes in this code.
- * By pH7 (Pierre-Henry SORIA).
+ * By Pierre-Henry SORIA <http://ph7.me>
  */
+
 namespace PFBC\Element;
 
-class Button extends \PFBC\Element
+use PFBC\Element;
+
+class Button extends Element
 {
+    /** @var array */
+    protected $attributes;
 
-    protected $attributes, $icon;
+    /** @var string */
+    protected $icon;
 
+    /**
+     * @param string $sLabel
+     * @param string $sType
+     *
+     * @param array|null $aProperties
+     */
     public function __construct($sLabel = '', $sType = '', array $aProperties = null)
     {
-        if(empty($sLabel)) $sLabel = t('Submit'); // Default translation value
+        if (empty($sLabel)) {
+            // Default translation value
+            $sLabel = t('Submit');
+        }
 
         $this->attributes = array('type' => 'submit', 'value' => t('Submit'));
 
-        if(!is_array($aProperties))
+        if (!is_array($aProperties)) {
             $aProperties = array();
+        }
 
-        if(!empty($sType))
+        if (!empty($sType)) {
             $aProperties['type'] = $sType;
+        }
 
-        if(empty($aProperties['value']))
+        if (empty($aProperties['value'])) {
             $aProperties['value'] = $sLabel;
+        }
 
         parent::__construct($sLabel, '', $aProperties);
     }
@@ -32,13 +49,15 @@ class Button extends \PFBC\Element
     {
         /*Unless explicitly prevented, jQueryUI's button widget functionality is applied to
         the each Button element.*/
-        if(!in_array('jQueryUIButtons', $this->form->getPrevent())) {
+        if (!in_array('jQueryUIButtons', $this->form->getPrevent())) {
             echo 'jQuery("#', $this->attributes['id'], '").button(';
             /*Any of the jQueryUI framework icons can be added to your buttons via the icon
             property.  See http://jqueryui.com/themeroller/ for a complete list of available
             icons.*/
-            if(!empty($this->icon))
+            if (!empty($this->icon)) {
                 echo '{ icons: { primary: "ui-icon-', $this->icon, '" } }';
+            }
+
             echo ');';
         }
     }
@@ -49,5 +68,4 @@ class Button extends \PFBC\Element
         button widget - specifically the icon option.*/
         echo '<button', $this->getAttributes(), '>', $this->label, '</button>';
     }
-
 }

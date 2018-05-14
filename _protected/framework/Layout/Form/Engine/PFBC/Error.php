@@ -3,25 +3,32 @@
  * We made many changes in this code.
  * By pH7 (Pierre-Henry SORIA).
  */
+
 namespace PFBC;
 
-abstract class Error extends Base {
+abstract class Error extends Base
+{
+    /** @var Form */
     protected $form;
 
-    public function __construct(array $properties = null) {
+    public function __construct(array $properties = null)
+    {
         $this->configure($properties);
     }
 
-    public abstract function applyAjaxErrorResponse();
+    abstract public function applyAjaxErrorResponse();
 
-    public function clear() {
+    public function clear()
+    {
         echo 'jQuery("#', $this->form->getId(), ' .pfbc-error").remove();';
     }
 
-    public abstract function render();
-    public abstract function renderAjaxErrorResponse();
+    abstract public function render();
 
-    public function renderCSS() {
+    abstract public function renderAjaxErrorResponse();
+
+    public function renderCSS()
+    {
         $id = $this->form->getId();
         echo <<<CSS
 #$id .pfbc-error{margin-top:6px;padding:.5em;margin-bottom:1em}
@@ -30,7 +37,8 @@ abstract class Error extends Base {
 CSS;
     }
 
-    public function setForm(Form $form) {
+    public function setForm(Form $form)
+    {
         $this->form = $form;
     }
 }

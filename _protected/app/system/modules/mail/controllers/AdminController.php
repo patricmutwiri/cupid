@@ -1,17 +1,20 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <hello@ph7cms.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Mail / Controller
  */
+
 namespace PH7;
 
-use PH7\Framework\Url\Header;
 use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Url\Header;
 
 class AdminController extends MainController
 {
+    const EMAILS_PER_PAGE = 20;
+
     public function index()
     {
         Header::redirect(Uri::get('mail', 'admin', 'msglist'));
@@ -19,11 +22,25 @@ class AdminController extends MainController
 
     public function msgList()
     {
-        $this->iTotalMails = $this->oMailModel->search($this->httpRequest->get('looking'), true, $this->httpRequest->get('order'), $this->httpRequest->get('sort'), null, null);
-        $this->view->total_pages = $this->oPage->getTotalPages($this->iTotalMails, 20);
+        $this->iTotalMails = $this->oMailModel->search(
+            $this->httpRequest->get('looking'),
+            true,
+            $this->httpRequest->get('order'),
+            $this->httpRequest->get('sort'),
+            null,
+            null
+        );
+        $this->view->total_pages = $this->oPage->getTotalPages($this->iTotalMails, self::EMAILS_PER_PAGE);
         $this->view->current_page = $this->oPage->getCurrentPage();
 
-        $oAllMsg = $this->oMailModel->search($this->httpRequest->get('looking'), false, $this->httpRequest->get('order'), $this->httpRequest->get('sort'), $this->oPage->getFirstItem(), $this->oPage->getNbItemsByPage());
+        $oAllMsg = $this->oMailModel->search(
+            $this->httpRequest->get('looking'),
+            false,
+            $this->httpRequest->get('order'),
+            $this->httpRequest->get('sort'),
+            $this->oPage->getFirstItem(),
+            $this->oPage->getNbItemsPerPage()
+        );
 
         if (empty($oAllMsg)) {
             $this->displayPageNotFound(t('No messages found!'));

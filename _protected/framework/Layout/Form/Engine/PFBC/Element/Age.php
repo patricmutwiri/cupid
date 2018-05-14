@@ -1,26 +1,34 @@
 <?php
 /**
  * @author           Pierre-Henry Soria <hello@ph7cms.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @link             http://ph7cms.com
  * @package          PH7 / Framework / Layout / Form / Engine / PFBC / Element
  */
+
 namespace PFBC\Element;
 
+use PFBC\OptionElement;
 use PH7\Framework\Mvc\Model\DbConfig;
 
-class Age extends \PFBC\OptionElement
+class Age extends OptionElement
 {
-
     const MIN_AGE = 'min_age', MAX_AGE = 'max_age';
 
-    protected $sHtmlOutput, $iMinAge, $iMaxAge;
+    /** @var string */
+    protected $sHtmlOutput;
+
+    /** @var int */
+    protected $iMinAge;
+
+    /** @var int */
+    protected $iMaxAge;
 
     /**
      * Generate the select field for age search.
      *
-     * @return The field age with the default selected minimum and maximum registration age.
+     * @param array|null $aProperties
      */
     public function __construct($aProperties = null)
     {
@@ -42,20 +50,20 @@ class Age extends \PFBC\OptionElement
 
     /**
      * @param string $sType 'min_age' or 'max_age'
+     *
+     * @return string The field age with the default selected minimum and maximum registration age.
      */
     protected function getOptions($sType)
     {
         $sSelect = '';
         $sAttrName = ($sType == static::MIN_AGE) ? 'iMinAge' : 'iMaxAge';
 
-        for ($iAge = $this->iMinAge; $iAge <= $this->iMaxAge; $iAge++)
-        {
+        for ($iAge = $this->iMinAge; $iAge <= $this->iMaxAge; $iAge++) {
             $sSelect .= '<option value="' . $iAge . '"';
 
             if (!empty($this->attributes['value'][$sType]) && $iAge == $this->attributes['value'][$sType]
                 || empty($this->attributes['value'][$sType]) && $iAge == $this->$sAttrName
-            )
-            {
+            ) {
                 $sSelect .= ' selected="selected"';
             }
 
@@ -64,5 +72,4 @@ class Age extends \PFBC\OptionElement
 
         return $sSelect;
     }
-
 }

@@ -1,21 +1,21 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Payment / Form / Processing
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\Cache\Cache,
-PH7\Framework\Url\Header,
-PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Cache\Cache;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Url\Header;
 
 class MembershipFormProcess extends Form
 {
-
     public function __construct()
     {
         parent::__construct();
@@ -33,7 +33,9 @@ class MembershipFormProcess extends Form
         /* Clean UserCoreModel Cache */
         (new Cache)->start(UserCoreModel::CACHE_GROUP, null, null)->clear();
 
-        Header::redirect(Uri::get('payment','admin','membershiplist'), t('The Membership has been added!'));
+        Header::redirect(
+            Uri::get('payment', 'admin', 'membershiplist'),
+            t('The Membership has been added!')
+        );
     }
-
 }

@@ -2,33 +2,44 @@
 /**
  * @title          Microsoft OAuth (Windows Live) Class
  *
- * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @author         Pierre-Henry Soria <hello@ph7cms.com>
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Connect / Inc / Class
  * @version        0.6
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\File\Import,
-PH7\Framework\Date\CDateTime,
-PH7\Framework\Config\Config,
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Ip\Ip,
-PH7\Framework\Util\Various,
-PH7\Framework\Geo\Ip\Geo,
-PH7\Framework\Mvc\Router\Uri;
+use oauth_client_class;
+use PH7\Framework\Config\Config;
+use PH7\Framework\Date\CDateTime;
+use PH7\Framework\File\Import;
+use PH7\Framework\Geo\Ip\Geo;
+use PH7\Framework\Ip\Ip;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Util\Various;
+use stdClass;
 
 class Microsoft extends Api
 {
+    const API_URL = 'https://apis.live.net/v5.0/me';
 
-    private $_oClient, $_sUsername, $_iProfileId, $_aUserInfo;
+    /** @var oauth_client_class */
+    private $oClient;
 
-    /**
-     * @return void
-     */
+    /** @var string */
+    private $sUsername;
+
+    /** @var int */
+    private $iProfileId;
+
+    /** @var array */
+    private $aUserInfo;
+
     public function __construct()
     {
         parent::__construct();
@@ -37,26 +48,21 @@ class Microsoft extends Api
         Import::lib('Service.Microsoft.Live.oauth_client');
         Import::lib('Service.Microsoft.Live.http');
 
-        $this->_oClient = new \oauth_client_class;
+        $this->oClient = new oauth_client_class;
 
-        $this->_setConfig();
+        $this->setConfig();
 
         /* API permissions */
-        $this->_oClient->scope = 'wl.basic wl.emails wl.birthday';
+        $this->oClient->scope = 'wl.basic wl.emails wl.birthday';
 
-        if(($bSuccess = $this->_oClient->Initialize()))
-        {
-            if(($bSuccess = $this->_oClient->Process()))
-            {
-                if(strlen($this->_oClient->authorization_error))
-                {
-                    $this->_oClient->error = $this->_oClient->authorization_error;
+        if (($bSuccess = $this->oClient->Initialize())) {
+            if (($bSuccess = $this->oClient->Process())) {
+                if (strlen($this->oClient->authorization_error)) {
+                    $this->oClient->error = $this->oClient->authorization_error;
                     $bSuccess = false;
-                }
-                elseif(strlen($this->_oClient->access_token))
-                {
-                    $bSuccess = $this->_oClient->CallAPI(
-                        'https://apis.live.net/v5.0/me',
+                } elseif (strlen($this->oClient->access_token)) {
+                    $bSuccess = $this->oClient->CallAPI(
+                        self::API_URL,
                         'GET',
                         array(),
                         array('FailOnAccessError' => true),
@@ -65,60 +71,58 @@ class Microsoft extends Api
                 }
             }
 
-            $bSuccess = $this->_oClient->Finalize($bSuccess);
+            $bSuccess = $this->oClient->Finalize($bSuccess);
         }
 
-        if($this->_oClient->exit)
+        if ($this->oClient->exit) {
             exit(1);
+        }
 
-        if($bSuccess)
-        {
+        if ($bSuccess) {
             // User info is ok? Here we will be connect the user and/or adding the login and registering routines...
             $oUserModel = new UserCoreModel;
 
-            if(!$iId = $oUserModel->getId($oUserData->emails->account))
-            {
+            if (!$iId = $oUserModel->getId($oUserData->emails->account)) {
                 // Add User if it does not exist in our database
-                $this->add(escape($oUserData, true), $oUserModel);
+                $this->add($oUserData, $oUserModel);
 
-                $this->oDesign->setFlashMsg( t('You have now been registered! %0%', (new Registration)->sendMail($this->_aUserInfo, true)->getMsg()) );
-                $this->sUrl = Uri::get('connect','main','register');
-            }
-            else
-            {   // Login
+                $this->oDesign->setFlashMsg(
+                    t('You have now been registered! %0%', (new Registration($this->oView))->sendMail($this->aUserInfo, true)->getMsg())
+                );
+                $this->sUrl = Uri::get('connect', 'main', 'register');
+            } else {   // Login
                 $this->setLogin($iId, $oUserModel);
-                $this->sUrl = Uri::get('connect','main','home');
+                $this->sUrl = Uri::get('connect', 'main', 'home');
             }
 
             unset($oUserModel);
-        }
-        else
-        {
+        } else {
             // For testing purposes, if there was an error, let's kill the script
             $this->oDesign->setFlashMsg(t('Oops! An error has occurred. Please try again later.'));
-            $this->sUrl = Uri::get('connect','main','index');
+            $this->sUrl = Uri::get('connect', 'main', 'index');
         }
 
     }
 
     /**
-     * @param object $oProfile
-     * @param object \PH7\UserCoreModel $oUserModel
+     * @param stdClass $oProfile
+     * @param UserCoreModel $oUserModel
+     *
      * @return void
      */
-    public function add($oProfile, UserCoreModel $oUserModel)
+    public function add(stdClass $oProfile, UserCoreModel $oUserModel)
     {
         $oUser = new UserCore;
-        $sBirthDate = (isset($oProfile->birth_month, $oProfile->birth_day, $oProfile->birth_year)) ? $oProfile->birth_month . '/' . $oProfile->birth_day . '/' . $oProfile->birth_year : date('m/d/Y', strtotime('-30 year'));
+        $sBirthDate = $this->getBirthDate($oProfile);
         $sSex = $this->checkGender($oProfile->gender);
         $sMatchSex = $oUser->getMatchSex($sSex);
-        $this->_sUsername = $oUser->findUsername($oProfile->name, $oProfile->first_name, $oProfile->last_name);
+        $this->sUsername = $oUser->findUsername($oProfile->name, $oProfile->first_name, $oProfile->last_name);
         unset($oUser);
 
-        $this->_aUserInfo = [
+        $this->aUserInfo = [
             'email' => $oProfile->emails->account,
-            'username' => $this->_sUsername,
-            'password' => Various::genRndWord(8,30),
+            'username' => $this->sUsername,
+            'password' => Various::genRndWord(Registration::DEFAULT_PASSWORD_LENGTH),
             'first_name' => (!empty($oProfile->first_name)) ? $oProfile->first_name : '',
             'last_name' => (!empty($oProfile->last_name)) ? $oProfile->last_name : '',
             'sex' => $sSex,
@@ -134,11 +138,11 @@ class Microsoft extends Api
             'ip' => Ip::get(),
             'prefix_salt' => Various::genRnd(),
             'suffix_salt' => Various::genRnd(),
-            'hash_validation' => Various::genRnd(),
+            'hash_validation' => Various::genRnd(null, UserCoreModel::HASH_VALIDATION_LENGTH),
             'is_active' => DbConfig::getSetting('userActivationType')
         ];
 
-        $this->_iProfileId = $oUserModel->add($this->_aUserInfo);
+        $this->iProfileId = $oUserModel->add($this->aUserInfo);
     }
 
     /**
@@ -146,13 +150,24 @@ class Microsoft extends Api
      *
      * @return void
      */
-    private function _setConfig()
+    private function setConfig()
     {
-        $this->_oClient->server = 'Microsoft';
-        $this->_oClient->redirect_uri = Uri::get('connect','main','login','google');
+        $this->oClient->server = 'Microsoft';
+        $this->oClient->redirect_uri = Uri::get('connect', 'main', 'login', 'google');
 
-        $this->_oClient->client_id = Config::getInstance()->values['module.api']['microsoft.client_id'];
-        $this->_oClient->client_secret = Config::getInstance()->values['module.api']['microsoft.client_secret_key'];
+        $this->oClient->client_id = Config::getInstance()->values['module.api']['microsoft.client_id'];
+        $this->oClient->client_secret = Config::getInstance()->values['module.api']['microsoft.client_secret_key'];
     }
 
+    /**
+     * @param stdClass $oProfile
+     *
+     * @return bool
+     */
+    private function getBirthDate(stdClass $oProfile)
+    {
+        return isset($oProfile->birth_month, $oProfile->birth_day, $oProfile->birth_year) ?
+            $oProfile->birth_month . '/' . $oProfile->birth_day . '/' . $oProfile->birth_year :
+            date('m/d/Y', strtotime('-30 year'));
+    }
 }

@@ -1,19 +1,23 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <hello@ph7cms.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Admin / From / Processing
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use PH7\Framework\Mvc\Model\DbConfig, PH7\Framework\Mvc\Request\Http;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Request\Http;
+use stdClass;
 
 class MetaMainFormProcess extends Form
 {
-
-    private $aMetaFields = [
+    /** @var array */
+    private static $aMetaFields = [
         'page_title' => 'pageTitle',
         'headline' => 'headline',
         'slogan' => 'slogan',
@@ -35,8 +39,7 @@ class MetaMainFormProcess extends Form
         $oMetaData = DbConfig::getMetaMain($this->httpRequest->get('meta_lang'));
         $this->updateFields($oMetaData);
 
-        /* Clean DbConfig Cache */
-        (new Framework\Cache\Cache)->start(DbConfig::CACHE_GROUP, null, null)->clear();
+        DbConfig::clearCache();
 
         \PFBC\Form::setSuccess('form_meta', t('Meta Tags successfully updated!'));
     }
@@ -44,19 +47,15 @@ class MetaMainFormProcess extends Form
     /**
      * Update the fields in the DB (if modified only).
      *
-     * @param object $oMeta Meta Main DB data.
-     * @return void
+     * @param stdClass $oMeta Meta Main DB data.
      */
-    private function updateFields($oMeta)
+    private function updateFields(stdClass $oMeta)
     {
-        foreach ($this->aMetaFields as $sKey => $sVal)
-        {
-            if (!$this->str->equals($this->httpRequest->post($sKey), $oMeta->$sVal))
-            {
+        foreach (self::$aMetaFields as $sKey => $sVal) {
+            if (!$this->str->equals($this->httpRequest->post($sKey), $oMeta->$sVal)) {
                 $sParam = ($sKey == 'promo_text') ? Http::ONLY_XSS_CLEAN : null;
                 DbConfig::setMetaMain($sVal, $this->httpRequest->post($sKey, $sParam), $oMeta->langId);
             }
         }
     }
-
 }

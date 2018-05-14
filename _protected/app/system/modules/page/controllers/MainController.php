@@ -1,25 +1,33 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <hello@ph7cms.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Page / Controller
  */
+
 namespace PH7;
+
+use PH7\Framework\Layout\Html\Meta;
 use PH7\Framework\Mvc\Model\DbConfig;
 
 class MainController extends Controller
 {
+    const STATIC_CACHE_LIFETIME = 604800; // A week
+
+    /** @var string */
     private $sTitle;
 
     public function __construct()
     {
-          parent::__construct();
-          // Enable caching for all template pages of this module
-          $this->view->setCaching(true);
+        parent::__construct();
 
-          // Global variable for all template pages of this module
-          $this->view->admin_email = DbConfig::getSetting('adminEmail');
+        // Enable caching to all template pages of this module
+        $this->view->setCaching(true);
+        $this->view->setCacheExpire(self::STATIC_CACHE_LIFETIME);
+
+        // Global variable for all template pages of this module
+        $this->view->admin_email = DbConfig::getSetting('adminEmail');
     }
 
     public function index()
@@ -29,6 +37,7 @@ class MainController extends Controller
         $this->view->meta_keywords = t('dating, free dating, online dating, people, meeting, romance, woman, man, dating site, flirt, chat, chat room, webcam, video chat, %site_name%');
         $this->view->h1_title = t('Free Online Dating with %site_name%!');
         $this->view->h2_title = t('Innovative Online Dating Platform');
+
         $this->output();
     }
 
@@ -38,6 +47,7 @@ class MainController extends Controller
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -51,42 +61,59 @@ class MainController extends Controller
         $this->sTitle = t('Frequently asked questions of %site_name%');
         $this->view->meta_description = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
     public function terms()
     {
+        // For SEO: Google shouldn't waste time indexing TOS page
+        $this->view->header = Meta::NOINDEX;
+
         $this->sTitle = t('Terms and Conditions of Use');
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = t('Terms and Conditions of Use, Terms of Use - %site_name%');
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
     public function affiliateTerms()
     {
+        $this->view->header = Meta::NOINDEX;
+
         $this->sTitle = t('Affiliate Terms and Conditions of Use');
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = t('Affiliate Terms and Conditions of Use, Terms of Use - %site_name%');
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
     public function privacy()
     {
+        $this->view->header = Meta::NOINDEX;
+
         $this->sTitle = t('Privacy Policy');
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = t('Privacy Policy - %site_name%');
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
     public function legalNotice()
     {
+        $this->view->header = Meta::NOINDEX;
+
+        // Disable cache since it uses dynamic adminEmail. Otherwise, it won't be updated if done from admin panel
+        $this->view->setCaching(false);
+
         $this->sTitle = t('Legal Notice');
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = t('Legal Notice - %site_name%');
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -96,6 +123,7 @@ class MainController extends Controller
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = t('Help US - %site_name%');
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -105,6 +133,7 @@ class MainController extends Controller
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = t('Do you like %site_name% and want it even more popular, then share this site on your website, blog, discussion forum, etc...');
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -114,6 +143,7 @@ class MainController extends Controller
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 
@@ -123,6 +153,7 @@ class MainController extends Controller
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = $this->sTitle;
         $this->view->h1_title = t('Careers, Jobs and Internships at %site_name%');
+
         $this->output();
     }
 
@@ -132,6 +163,7 @@ class MainController extends Controller
         $this->view->page_title = $this->sTitle;
         $this->view->meta_description = $this->sTitle;
         $this->view->h1_title = $this->sTitle;
+
         $this->output();
     }
 }

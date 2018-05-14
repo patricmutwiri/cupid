@@ -1,10 +1,11 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Affiliate / Controller
  */
+
 namespace PH7;
 
 class HomeController extends Controller
@@ -16,14 +17,14 @@ class HomeController extends Controller
         parent::__construct();
 
         /** Predefined meta_description and keywords tags **/
-        $this->view->meta_description = t('Become an Affiliate with the affiliate dating community platform %site_name%');
+        $this->view->meta_description = t('Become an Affiliate with the dating affiliate program of %site_name%');
         $this->view->meta_keywords = t('affiliate,dating,dating site,social network,pay per click affiliate program, affiliate program');
     }
 
     public function index()
     {
-        $this->view->page_title = t('Affiliate Platform with %site_name%! Dating Social Affiliate');
-        $this->view->h1_title = t('Affiliate Platform - %site_name%');
+        $this->view->page_title = t('Affiliate Program with %site_name%! Dating Social Affiliate');
+        $this->view->h1_title = t('Affiliate Program - %site_name%');
 
         if (Affiliate::auth()) {
             $this->view->h3_title = t('Hi <em>%0%</em>. Welcome back to your affiliate area!', $this->session->get('affiliate_first_name'));

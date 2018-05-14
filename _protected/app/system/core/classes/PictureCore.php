@@ -1,21 +1,22 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Core / Class
  */
+
 namespace PH7;
 
 use PH7\Framework\File\File;
 
 class PictureCore
 {
-
     /**
      * @param integer $iAlbumId
      * @param string $sUsername
      * @param string $sPictureLink (file with the extension)
+     *
      * @return void
      */
     public function deletePhoto($iAlbumId, $sUsername, $sPictureLink)
@@ -30,10 +31,9 @@ class PictureCore
             $sDir . str_replace('original', '800', $sPictureLink),
             $sDir . str_replace('original', '1000', $sPictureLink),
             $sDir . str_replace('original', '1200', $sPictureLink)
-        ] ;
+        ];
 
         (new File)->deleteFile($aFiles);
         unset($aFiles);
     }
-
 }

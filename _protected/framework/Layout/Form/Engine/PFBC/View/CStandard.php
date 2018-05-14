@@ -3,12 +3,12 @@
  * We made this code.
  * By pH7.
  */
+
 namespace PFBC\View;
-// Class for the pH7 CMS
+// Class for pH7CMS
 
 class CStandard extends \PFBC\View
 {
-
     public function render()
     {
         echo '<form', $this->form->getAttributes(), '>';
@@ -18,22 +18,18 @@ class CStandard extends \PFBC\View
         $elementSize = sizeof($elements);
         $elementCount = 0;
 
-        for($e = 0; $e < $elementSize; ++$e)
-        {
+        for ($e = 0; $e < $elementSize; ++$e) {
             $element = $elements[$e];
 
-            if($element instanceof \PFBC\Element\Hidden || $element instanceof \PFBC\Element\HTMLExternal)
+            if ($element instanceof \PFBC\Element\Hidden || $element instanceof \PFBC\Element\HTMLExternal)
                 $element->render();
-            elseif($element instanceof \PFBC\Element\Button)
-            {
-                if($e == 0 || !$elements[($e - 1)] instanceof \PFBC\Element\Button)
+            elseif ($element instanceof \PFBC\Element\Button) {
+                if ($e == 0 || !$elements[($e - 1)] instanceof \PFBC\Element\Button)
                     echo '<div class="pfbc-element pfbc-buttons">';
                 $element->render();
-                if(($e + 1) == $elementSize || !$elements[($e + 1)] instanceof \PFBC\Element\Button)
+                if (($e + 1) == $elementSize || !$elements[($e + 1)] instanceof \PFBC\Element\Button)
                     echo '</div>';
-            }
-            else
-            {
+            } else {
                 echo '<div id="pfbc-element-', $elementCount, '">', $element->getPreHTML();
                 $this->renderLabel($element);
                 $element->render();
@@ -65,14 +61,11 @@ CSS;
         $elementSize = sizeof($elements);
         $elementCount = 0;
 
-        for($e = 0; $e < $elementSize; ++$e)
-        {
+        for ($e = 0; $e < $elementSize; ++$e) {
             $element = $elements[$e];
             $elementWidth = $element->getWidth();
-            if(!$element instanceof \PFBC\Element\Hidden && !$element instanceof \PFBC\Element\HTMLExternal && !$element instanceof \PFBC\Element\HTMLExternal)
-            {
-                if(!empty($elementWidth))
-                {
+            if (!$element instanceof \PFBC\Element\Hidden && !$element instanceof \PFBC\Element\HTMLExternal && !$element instanceof \PFBC\Element\HTMLExternal) {
+                if (!empty($elementWidth)) {
                     echo '#', $id, ' #pfbc-element-', $elementCount, ' { width: ', $elementWidth, $widthSuffix, '; }';
                     echo '#', $id, ' #pfbc-element-', $elementCount, ' .pfbc-textbox, #', $id, ' #pfbc-element-', $elementCount, ' .pfbc-textarea, #', $id, ' #pfbc-element-', $elementCount, ' .pfbc-select { width: ', $elementWidth, $widthSuffix, '; }';
                 }
@@ -80,5 +73,4 @@ CSS;
             }
         }
     }
-
 }

@@ -2,35 +2,52 @@
 /**
  * @title          Twitter Authentication Class
  *
- * @author         Pierre-Henry Soria <ph7software@gmail.com>
+ * @author         Pierre-Henry Soria <hello@ph7cms.com>
  * @author         Steve Guidetti <http://net.tutsplus.com/tutorials/php/creating-a-twitter-oauth-application/>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Connect / Inc / Class
  * @version        0.9
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\File\Import,
-PH7\Framework\Date\CDateTime,
-PH7\Framework\Config\Config,
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Ip\Ip,
-PH7\Framework\File\File,
-PH7\Framework\Util\Various,
-PH7\Framework\Geo\Ip\Geo,
-PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Config\Config;
+use PH7\Framework\Date\CDateTime;
+use PH7\Framework\File\File;
+use PH7\Framework\File\Import;
+use PH7\Framework\Geo\Ip\Geo;
+use PH7\Framework\Ip\Ip;
+use PH7\Framework\Layout\Html\Design;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Url\Header;
+use PH7\Framework\Util\Various;
+use tmhOAuth;
+use tmhUtilities;
 
 class Twitter extends Api implements IApi
 {
+    /** @var tmhOAuth */
+    private $oTwOAuth;
 
-    private $_oTwOAuth, $_sAvatarFile, $_sUsername, $_iState, $_iProfileId, $_aUserInfo;
+    /** @var string */
+    private $sAvatarFile;
 
-    /**
-     * @return void
-     */
+    /** @var string */
+    private $sUsername;
+
+    /** @var int */
+    private $iState;
+
+    /** @var int */
+    private $iProfileId;
+
+    /** @var array */
+    private $aUserInfo;
+
     public function __construct()
     {
         parent::__construct();
@@ -39,76 +56,66 @@ class Twitter extends Api implements IApi
         Import::lib('Service.Twitter.tmhOAuth');
         Import::lib('Service.Twitter.tmhUtilities');
 
-        $this->_oTwOAuth = new \tmhOAuth(
+        $this->oTwOAuth = new tmhOAuth(
             Config::getInstance()->values['module.api']['twitter.consumer_key'],
             Config::getInstance()->values['module.api']['twitter.consumer_secret_key']
         );
 
         // determine the authentication status
         // default to 0
-        $this->_iState = 0;
+        $this->iState = 0;
 
-        if(isset($_COOKIE['access_token'], $_COOKIE['access_token_secret']))
-        {
+        if (isset($_COOKIE['access_token'], $_COOKIE['access_token_secret'])) {
             // 2 (authenticated) if the cookies are set
-            $this->_iState = 2;
-        }
-        elseif(isset($_SESSION['authstate']))
-        {
+            $this->iState = 2;
+        } elseif (isset($_SESSION['authstate'])) {
             // otherwise use value stored in session
-            $this->_iState = (int)$_SESSION['authstate'];
+            $this->iState = (int)$_SESSION['authstate'];
         }
 
-        if($this->_iState == 1)
-        {
+        if ($this->iState == 1) {
             // if we are in the process of authentication we continue
             $this->auth();
-        }
-        elseif($this->_iState == 2 && !$this->auth())
-        {
+        } elseif ($this->iState == 2 && !$this->auth()) {
             // verify authentication, clearing cookies if it fails
             $this->endSession();
         }
 
-        if ($this->auth())
-        {
-            $aProfile = $this->_oTwOAuth->extract_params($this->_oTwOAuth->response['response']);
+        if ($this->auth()) {
+            $aProfile = $this->oTwOAuth->extract_params($this->oTwOAuth->response['response']);
 
-            if(empty($aProfile['error']))
-            {
+            if (empty($aProfile['error'])) {
                 // User info is ok? Here we will be connect the user and/or adding the login and registering routines...
                 $oUserModel = new UserCoreModel;
 
-                if(!$iId = $oUserModel->getId($aProfile['email']))
-                {
+                if (!$iId = $oUserModel->getId($aProfile['email'])) {
                     // Add User if it does not exist in our database
                     $this->add(escape($aProfile, true), $oUserModel);
 
                     // Add User Avatar
                     $this->setAvatar($aProfile);
 
-                    $this->oDesign->setFlashMsg( t('You have now been registered! %0%', (new Registration)->sendMail($this->_aUserInfo, true)->getMsg()) );
-                    $this->sUrl = Uri::get('connect','main','register');
-                }
-                else
-                {
+                    $this->oDesign->setFlashMsg(
+                        t('You have now been registered! %0%', (new Registration($this->oView))->sendMail($this->aUserInfo, true)->getMsg())
+                    );
+                    $this->sUrl = Uri::get('connect', 'main', 'register');
+                } else {
                     // Login
                     $this->setLogin($iId, $oUserModel);
-                    $this->sUrl = Uri::get('connect','main','home');
+                    $this->sUrl = Uri::get('connect', 'main', 'home');
                 }
 
                 unset($oUserModel);
-            }
-            else
-            {
+            } else {
                 // For testing purposes, if there was an error, let's kill the script
-                $this->oDesign->setFlashMsg(t('Oops! An error has occurred. Please try again later.'));
-                $this->sUrl = Uri::get('connect','main','index');
+                $this->oDesign->setFlashMsg(
+                    t('Oops! An error has occurred. Please try again later.'),
+                    Design::ERROR_TYPE
+                );
+                $this->sUrl = Uri::get('connect', 'main', 'index');
             }
-        }
-        else
-        {
-            $this->sUrl = Uri::get('connect','main','index');
+        } else {
+            $this->sUrl = Uri::get('connect', 'main', 'index');
         }
     }
 
@@ -120,21 +127,20 @@ class Twitter extends Api implements IApi
     public function auth()
     {
         // state 1 requires a GET variable to exist
-        if($this->_iState == 1 && !isset($_GET['oauth_verifier'])) {
-            $this->_iState = 0;
+        if ($this->iState == 1 && !isset($_GET['oauth_verifier'])) {
+            $this->iState = 0;
         }
 
         // Step 1: Get a request token
-        if($this->_iState == 0) {
-            return $this->_getRequestToken();
-        }
-        // Step 2: Get an access token
-        elseif($this->_iState == 1) {
-            return $this->_getAccessToken();
+        if ($this->iState == 0) {
+            return $this->getRequestToken();
+        } // Step 2: Get an access token
+        elseif ($this->iState == 1) {
+            return $this->getAccessToken();
         }
 
         // Step 3: Verify the access token
-        return $this->_verifyAccessToken();
+        return $this->verifyAccessToken();
     }
 
     /**
@@ -144,7 +150,7 @@ class Twitter extends Api implements IApi
      */
     public function isAuthed()
     {
-        return $this->_iState == 2;
+        return $this->iState == 2;
     }
 
     /**
@@ -154,7 +160,7 @@ class Twitter extends Api implements IApi
      */
     public function endSession()
     {
-        $this->_iState = 0;
+        $this->iState = 0;
         $_SESSION['authstate'] = 0;
         setcookie('access_token', '', 0);
         setcookie('access_token_secret', '', 0);
@@ -164,6 +170,7 @@ class Twitter extends Api implements IApi
      * Send a tweet on the user's behalf.
      *
      * @param string $sText Text to tweet.
+     *
      * @return bool Tweet successfully sent.
      */
     public function sendTweet($sText)
@@ -172,16 +179,17 @@ class Twitter extends Api implements IApi
         $sText = substr($sText, 0, 140);
 
         // POST the text to the statuses/update method
-        $this->_oTwOAuth->request('POST', $this->_oTwOAuth->url('1/statuses/update'), array(
+        $this->oTwOAuth->request('POST', $this->oTwOAuth->url('1/statuses/update'), array(
             'status' => $sText
         ));
 
-        return ($this->_oTwOAuth->response['code'] == 200);
+        return $this->oTwOAuth->response['code'] == 200;
     }
 
     /**
      * @param array $aProfile
-     * @param object \PH7\UserCoreModel $oUserModel
+     * @param UserCoreModel $oUserModel
+     *
      * @return void
      */
     public function add(array $aProfile, UserCoreModel $oUserModel)
@@ -190,13 +198,13 @@ class Twitter extends Api implements IApi
         $sBirthDate = (!empty($aProfile['birthday'])) ? $aProfile['birthday'] : date('m/d/Y', strtotime('-30 year'));
         $sSex = $this->checkGender($aProfile['gender']);
         $sMatchSex = $oUser->getMatchSex($sSex);
-        $this->_sUsername = $oUser->findUsername($aProfile['given_name'], $aProfile['name'], $aProfile['family_name']);
+        $this->sUsername = $oUser->findUsername($aProfile['given_name'], $aProfile['name'], $aProfile['family_name']);
         unset($oUser);
 
-        $this->_aUserInfo = [
+        $this->aUserInfo = [
             'email' => $aProfile['email'],
-            'username' => $this->_sUsername,
-            'password' => Various::genRndWord(8,30),
+            'username' => $this->sUsername,
+            'password' => Various::genRndWord(Registration::DEFAULT_PASSWORD_LENGTH),
             'first_name' => (!empty($aProfile['given_name'])) ? $aProfile['given_name'] : '',
             'last_name' => (!empty($aProfile['family_name'])) ? $aProfile['family_name'] : '',
             'sex' => $sSex,
@@ -212,47 +220,44 @@ class Twitter extends Api implements IApi
             'ip' => Ip::get(),
             'prefix_salt' => Various::genRnd(),
             'suffix_salt' => Various::genRnd(),
-            'hash_validation' => Various::genRnd(),
+            'hash_validation' => Various::genRnd(null, UserCoreModel::HASH_VALIDATION_LENGTH),
             'is_active' => DbConfig::getSetting('userActivationType')
         ];
 
-        $this->_iProfileId = $oUserModel->add($this->_aUserInfo);
+        $this->iProfileId = $oUserModel->add($this->aUserInfo);
     }
 
     /**
      * Set Avatar.
      *
      * @param string $aUserData
+     *
      * @return void
      */
     public function setAvatar($aUserData)
     {
         // Request user's 'bigger' profile image
-        $this->_oTwOAuth->request('GET', $this->_oTwOAuth->url('1/users/profile_image/' . $aUserData['screen_name']), array(
+        $this->oTwOAuth->request('GET', $this->oTwOAuth->url('1/users/profile_image/' . $aUserData['screen_name']), array(
             'screen_name' => $aUserData['screen_name'],
             'size' => 'bigger'
         ));
 
         // Try to get the URL for the avatar size standard
-        if($this->_oTwOAuth->response['code'] == 302)
-        {
+        if ($this->oTwOAuth->response['code'] == 302) {
             // the direct URL is in the Location header
-            $this->_sAvatarFile = $this->getAvatar($this->_oTwOAuth->response['headers']['location']);
-        }
-        else
-        {
+            $this->sAvatarFile = $this->getAvatar($this->oTwOAuth->response['headers']['location']);
+        } else {
             // If this does not work, we try to recover the URL for the original image in full size
-            $this->_sAvatarFile = $this->getAvatar($aUserData['profile_image_url']);
+            $this->sAvatarFile = $this->getAvatar($aUserData['profile_image_url']);
         }
 
-        if($this->_sAvatarFile)
-        {
-            $iApproved = (DbConfig::getSetting('avatarManualApproval') == 0) ? '1' : '0';
-            (new UserCore)->setAvatar($this->_iProfileId, $this->_sUsername, $this->_sAvatarFile, $iApproved);
+        if ($this->sAvatarFile) {
+            $iApproved = (DbConfig::getSetting('avatarManualApproval') == 0) ? 1 : 0;
+            (new UserCore)->setAvatar($this->iProfileId, $this->sUsername, $this->sAvatarFile, $iApproved);
         }
 
         // Remove the temporary avatar
-        (new File)->deleteFile($this->_sAvatarFile);
+        (new File)->deleteFile($this->sAvatarFile);
     }
 
     /**
@@ -260,18 +265,17 @@ class Twitter extends Api implements IApi
      *
      * @return bool Returns FALSE if request failed.
      */
-    private function _getRequestToken()
+    private function getRequestToken()
     {
         // send request for a request token
-        $this->_oTwOAuth->request('POST', $this->_oTwOAuth->url('oauth/request_token', ''), array(
+        $this->oTwOAuth->request('POST', $this->oTwOAuth->url('oauth/request_token', ''), array(
             // pass a variable to set the callback
-            'oauth_callback' => \tmhUtilities::php_self()
+            'oauth_callback' => tmhUtilities::php_self()
         ));
 
-        if($this->_oTwOAuth->response['code'] == 200)
-        {
+        if ($this->oTwOAuth->response['code'] == 200) {
             // get and store the request token
-            $aResponse = $this->_oTwOAuth->extract_params($this->_oTwOAuth->response['response']);
+            $aResponse = $this->oTwOAuth->extract_params($this->oTwOAuth->response['response']);
             $_SESSION['authtoken'] = $aResponse['oauth_token'];
             $_SESSION['authsecret'] = $aResponse['oauth_token_secret'];
 
@@ -279,9 +283,10 @@ class Twitter extends Api implements IApi
             $_SESSION['authstate'] = 1;
 
             // redirect the user to Twitter to authorize
-            $sUrl = $this->_oTwOAuth->url('oauth/authorize', '') . '?oauth_token=' . $aResponse['oauth_token'];
-            Framework\Url\Header::redirect($sUrl);
+            $sUrl = $this->oTwOAuth->url('oauth/authorize', '') . '?oauth_token=' . $aResponse['oauth_token'];
+            Header::redirect($sUrl);
         }
+
         return false;
     }
 
@@ -290,32 +295,32 @@ class Twitter extends Api implements IApi
      *
      * @return bool Returns FALSE if request failed.
      */
-    private function _getAccessToken()
+    private function getAccessToken()
     {
         // set the request token and secret we have stored
-        $this->_oTwOAuth->config['user_token'] = $_SESSION['authtoken'];
-        $this->_oTwOAuth->config['user_secret'] = $_SESSION['authsecret'];
+        $this->oTwOAuth->config['user_token'] = $_SESSION['authtoken'];
+        $this->oTwOAuth->config['user_secret'] = $_SESSION['authsecret'];
 
         // send request for an access token
-        $this->_oTwOAuth->request('POST', $this->_oTwOAuth->url('oauth/access_token', ''), array(
+        $this->oTwOAuth->request('POST', $this->oTwOAuth->url('oauth/access_token', ''), array(
             // pass the oauth_verifier received from Twitter
             'oauth_verifier' => $_GET['oauth_verifier']
         ));
 
-        if($this->_oTwOAuth->response['code'] == 200) {
-
+        if ($this->oTwOAuth->response['code'] == 200) {
             // get the access token and store it in a cookie
-            $aResponse = $this->_oTwOAuth->extract_params($this->_oTwOAuth->response['response']);
-            setcookie('access_token', $aResponse['oauth_token'], time()+3600*24*30);
-            setcookie('access_token_secret', $aResponse['oauth_token_secret'], time()+3600*24*30);
+            $aResponse = $this->oTwOAuth->extract_params($this->oTwOAuth->response['response']);
+            setcookie('access_token', $aResponse['oauth_token'], time() + 3600 * 24 * 30);
+            setcookie('access_token_secret', $aResponse['oauth_token_secret'], time() + 3600 * 24 * 30);
 
             // state is now 2
             $_SESSION['authstate'] = 2;
 
             // redirect user to clear leftover GET variables
-            $this->sUrl = \tmhUtilities::php_self();
+            $this->sUrl = tmhUtilities::php_self();
             exit;
         }
+
         return false;
     }
 
@@ -324,19 +329,18 @@ class Twitter extends Api implements IApi
      *
      * @return bool Access token verified.
      */
-    private function _verifyAccessToken()
+    private function verifyAccessToken()
     {
-        $this->_oTwOAuth->config['user_token'] = $_COOKIE['access_token'];
-        $this->_oTwOAuth->config['user_secret'] = $_COOKIE['access_token_secret'];
+        $this->oTwOAuth->config['user_token'] = $_COOKIE['access_token'];
+        $this->oTwOAuth->config['user_secret'] = $_COOKIE['access_token_secret'];
 
         // send verification request to test access key
-        $this->_oTwOAuth->request('GET', $this->_oTwOAuth->url('1/account/verify_credentials'));
+        $this->oTwOAuth->request('GET', $this->oTwOAuth->url('1/account/verify_credentials'));
 
         // store the user data returned from the API
-        $this->userdata = json_decode($this->_oTwOAuth->response['response']);
+        $this->userdata = json_decode($this->oTwOAuth->response['response']);
 
         // HTTP 200 means we were successful
-        return ($this->_oTwOAuth->response['code'] == 200);
+        return $this->oTwOAuth->response['code'] == 200;
     }
-
 }

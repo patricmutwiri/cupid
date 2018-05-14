@@ -1,11 +1,13 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Payment / Config
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
 /**
@@ -14,8 +16,7 @@ defined('PH7') or exit('Restricted access');
  *
  * 1 = Yes | 0 = No
  */
-
-return array(
+return [
     'quick_search_profiles' => 1,
     'advanced_search_profiles' => 1,
     'read_mails' => 1,
@@ -28,7 +29,7 @@ return array(
     'chat' => 1,
     'chatroulette' => 1,
     'hot_or_not' => 1,
-    'love_calculator' =>1,
+    'love_calculator' => 1,
     'read_notes' => 1,
     'write_notes' => 1,
     'read_blog_posts' => 1,
@@ -40,4 +41,4 @@ return array(
     'games_access' => 1,
     'webcam_access' => 1,
     'member_site_access' => 1,
-);
+];

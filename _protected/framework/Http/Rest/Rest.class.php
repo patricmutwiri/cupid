@@ -3,112 +3,121 @@
  * @title            Rest Class
  * @desc             Rest (REpresentational State Transfer) Class.
  *
- * @author           Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright        (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @author           Pierre-Henry Soria <hello@ph7cms.com>
+ * @copyright        (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license          GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package          PH7 / Framework / Http / Rest
- * @version          1.2
+ * @version          1.3
  */
 
 namespace PH7\Framework\Http\Rest;
+
 defined('PH7') or exit('Restricted access');
 
-use PH7\Framework\File\Stream, PH7\Framework\Mvc\Request\Http as HttpRequest;
+use PH7\Framework\File\Stream;
+use PH7\Framework\Http\Http;
+use PH7\Framework\Mvc\Request\Http as HttpRequest;
+use PH7\Framework\Str\Str;
 
-class Rest extends \PH7\Framework\Http\Http
+class Rest extends Http
 {
+    const CONTENT_TYPE = 'application/json';
 
-    private
-    $_sContentType,
-    $_iCode,
-    $_sData,
-    $_aRequest;
+    /** @var int */
+    private $iCode;
 
+    /** @var string */
+    private $sData;
+
+    /** @var array */
+    private $aRequest;
 
     /**
      * Calls Rest::_inputs() method and sets default values.
      */
     public function __construct()
     {
-        $this->_sContentType = 'application/json'; // Output format
-        $this->_inputs();
+        $this->inputs();
     }
 
     /**
      * @param string $sData The data from a request
-     * @param integer $iStatus Status Code. Default 200
+     * @param int $iStatus Status Code. Default 200
+     *
      * @return void
      */
     public function response($sData, $iStatus = 200)
     {
-        $this->_sData = $sData;
+        $this->sData = $sData;
 
         /**
-         * @internal \PH7\Framework\Http\Http::getStatusCodes() returns FLASE when it doesn't find a GTTP status code.
+         * @internal Http::getStatusCodes() returns FALSE when it doesn't find any valid HTTP codes.
          */
-        $this->_iCode = (false !== static::getStatusCodes($iStatus)) ? $iStatus : 500; // If it finds nothing, then we put the 500 HTTP Status Code.
-        $this->_output();
+        $this->iCode = false !== static::getStatusCodes($iStatus) ? $iStatus : 500; // If it finds nothing, give 500 HTTP code.
+        $this->output();
     }
 
     /**
-     * Get the request data.
-     *
-     * @return array
+     * @return array|string
      */
     public function getRequest()
     {
-        return $this->_aRequest;
+        return $this->aRequest;
+    }
+
+    /**
+     * @return string The request body content (usually, should be a JSON string).
+     */
+    public function getBody()
+    {
+        return Stream::getInput();
     }
 
     /**
      * @return void
      */
-    private function _inputs()
+    private function inputs()
     {
-        switch ($this->getRequestMethod())
-        {
+        switch ($this->getRequestMethod()) {
             case HttpRequest::METHOD_POST:
-                $this->_aRequest = $this->_cleanInputs($_POST);
-            break;
+                $this->aRequest = $this->cleanInputs($_POST);
+                break;
 
             case HttpRequest::METHOD_GET:
             case HttpRequest::METHOD_DELETE:
-                $this->_aRequest = $this->_cleanInputs($_GET);
-            break;
+                $this->aRequest = $this->cleanInputs($_GET);
+                break;
 
             case HttpRequest::METHOD_PUT:
-                parse_str(Stream::getInput(), $this->_aRequest);
-                $this->_aRequest = $this->_cleanInputs($this->_aRequest);
-            break;
+                parse_str(Stream::getInput(), $this->aRequest);
+                $this->aRequest = $this->cleanInputs($this->aRequest);
+                break;
 
             default:
                 $this->response('', 406);
-            break;
+                break;
         }
     }
 
     /**
-     * Clean Inputs.
+     * @param array|string
      *
-     * @param mixed (array | string)
-     * @return array
+     * @return array|string
      */
-    private function _cleanInputs($mData)
+    private function cleanInputs($mData)
     {
-        $aCleanInput = array();
+        if (is_array($mData)) {
+            $aCleanInput = array();
 
-        if (is_array($mData))
-        {
-            foreach($mData as $sKey => $sValue)
-                $aCleanInput[$sKey] = $this->_cleanInputs($sValue); // Recursive method
-        }
-        else
-        {
-            $mData = (new \PH7\Framework\Str\Str)->escape($mData);
-            $aCleanInput = trim($mData);
+            foreach ($mData as $sKey => $sValue) {
+                $aCleanInput[$sKey] = $this->cleanInputs($sValue);
+            }
+
+            return $aCleanInput;
         }
 
-        return $aCleanInput;
+        $mData = (new Str)->escape($mData);
+        return trim($mData);
     }
 
     /**
@@ -116,12 +125,11 @@ class Rest extends \PH7\Framework\Http\Http
      *
      * @return void
      */
-    private function _output()
+    private function output()
     {
-        static::setHeadersByCode($this->_iCode);
-        static::setContentType($this->_sContentType);
-        echo $this->_sData;
-        exit; // Stop the Script
+        static::setHeadersByCode($this->iCode);
+        static::setContentType(self::CONTENT_TYPE); //Output format
+        echo $this->sData;
+        exit;
     }
-
 }

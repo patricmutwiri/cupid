@@ -1,17 +1,19 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Blog / Form / Processing
  */
+
 namespace PH7;
+
 defined('PH7') or die('Restricted access');
 
-use
-PH7\Framework\Mvc\Request\Http,
-PH7\Framework\Url\Header,
-PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Mvc\Request\Http;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Url\Header;
+use stdClass;
 
 class EditAdminBlogFormProcess extends Form
 {
@@ -31,10 +33,10 @@ class EditAdminBlogFormProcess extends Form
         $this->updateCategories($iBlogId, $oPost, $oBlogModel);
 
         if (!$this->str->equals($sPostId, $oPost->postId)) {
-            if ($oBlog->checkPostId($sPostId)) {
+            if ($oBlog->checkPostId($sPostId, $oBlogModel)) {
                 $oBlogModel->updatePost('postId', $sPostId, $iBlogId);
             } else {
-                \PFBC\Form::setError('form_blog', t('The post ID already exists or is incorrect.'));
+                \PFBC\Form::setError('form_edit_blog', t('The post ID already exists or is incorrect.'));
                 return;
             }
         }
@@ -45,7 +47,7 @@ class EditAdminBlogFormProcess extends Form
         if (!$this->str->equals($this->httpRequest->post('title'), $oPost->title))
             $oBlogModel->updatePost('title', $this->httpRequest->post('title'), $iBlogId);
 
-        // HTML contents, So we use the constant: \PH7\Framework\Mvc\Request\Http::ONLY_XSS_CLEAN
+        // HTML contents, So we use Http::ONLY_XSS_CLEAN constant
         if (!$this->str->equals($this->httpRequest->post('content', Http::ONLY_XSS_CLEAN), $oPost->content))
             $oBlogModel->updatePost('content', $this->httpRequest->post('content', Http::ONLY_XSS_CLEAN), $iBlogId);
 
@@ -81,9 +83,9 @@ class EditAdminBlogFormProcess extends Form
 
         // Updated the modification Date
         $oBlogModel->updatePost('updatedDate', $this->dateTime->get()->dateTime('Y-m-d H:i:s'), $sPostId);
-        unset($oBlogModel);
+        unset($oBlog, $oBlogModel);
 
-        $this->clearCache();
+        Blog::clearCache();
 
         Header::redirect(Uri::get('blog', 'main', 'read', $sPostId), t('Post successfully updated!'));
     }
@@ -92,26 +94,22 @@ class EditAdminBlogFormProcess extends Form
      * Update categories.
      *
      * @param integer $iBlogId
-     * @param object $oPost Post data from the database.
-     * @param \PH7\BlogModel $oBlogModel
+     * @param stdClass $oPost Post data from the database.
+     * @param BlogModel $oBlogModel
+     *
      * @return void
      *
-     * @internal WARNING: Be careful, you should use the \PH7\Framework\Mvc\Request\Http::ONLY_XSS_CLEAN constant,
-     * otherwise the Request\Http::post() method removes the special tags and damages the SET function SQL for entry into the database.
+     * @internal WARNING: Be careful, you should use Http::NO_CLEAN constant,
+     * otherwise Http::post() method removes the special tags and damages the SET function SQL for entry into the database.
      */
-    protected function updateCategories($iBlogId, $oPost, BlogModel $oBlogModel)
+    protected function updateCategories($iBlogId, stdClass $oPost, BlogModel $oBlogModel)
     {
-        if (!$this->str->equals($this->httpRequest->post('category_id', Http::ONLY_XSS_CLEAN), $oPost->categoryId)) {
+        if (!$this->str->equals($this->httpRequest->post('category_id', Http::NO_CLEAN), $oPost->categoryId)) {
             $oBlogModel->deleteCategory($iBlogId);
 
-            foreach ($this->httpRequest->post('category_id', Http::ONLY_XSS_CLEAN) as $iCategoryId) {
+            foreach ($this->httpRequest->post('category_id', Http::NO_CLEAN) as $iCategoryId) {
                 $oBlogModel->addCategory($iCategoryId, $iBlogId);
             }
         }
-    }
-
-    private function clearCache()
-    {
-        (new Framework\Cache\Cache)->start(BlogModel::CACHE_GROUP, null, null)->clear();
     }
 }

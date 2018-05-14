@@ -1,14 +1,17 @@
 <?php
+/**
+ * File modified by Pierre-Henry Soria
+ */
+
 namespace PFBC\Element;
 
 class TinyMCE extends Textarea
 {
-
     protected $basic;
 
     public function jQueryDocumentReady()
     {
-        echo 'jQuery("#', $this->attributes["id"], '").width(jQuery("#', $this->attributes["id"], '").width());';
+        echo 'jQuery("#', $this->attributes['id'], '").width(jQuery("#', $this->attributes['id'], '").width());';
     }
 
     public function renderJS()
@@ -16,9 +19,9 @@ class TinyMCE extends Textarea
         echo <<<JS
 tinyMCE.init({
     mode: "exact",
-    elements: "{$this->attributes["id"]}",
+    elements: "{$this->attributes['id']}",
 JS;
-        if(empty($this->basic)) {
+        if (empty($this->basic)) {
             echo <<<JS
     theme: "advanced",
     plugins: "safari,table,paste,inlinepopups,preview,fullscreen",
@@ -30,10 +33,9 @@ JS;
     theme_advanced_toolbar_align : "left",
     theme_advanced_resizing : true,
 JS;
-        }
-        else
+        } else
             echo 'theme: "simple",';
-    echo <<<JS
+        echo <<<JS
     forced_root_block: false,
     force_br_newlines: true,
     force_p_newlines: false
@@ -42,7 +44,7 @@ JS;
 
         $ajax = $this->form->getAjax();
         $id = $this->form->getID();
-        if(!empty($ajax)) {
+        if (!empty($ajax)) {
             echo <<<JS
     jQuery("#$id").bind("submit", function() {
         tinyMCE.triggerSave();
@@ -53,9 +55,8 @@ JS;
 
     public function getJSFiles()
     {
-        return array(
-            $this->form->getResourcesPath() . "/tiny_mce/tiny_mce.js"
-        );
+        return [
+            $this->form->getResourcesPath() . '/tiny_mce/tiny_mce.js'
+        ];
     }
-
 }

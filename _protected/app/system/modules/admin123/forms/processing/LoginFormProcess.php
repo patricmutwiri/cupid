@@ -1,105 +1,134 @@
 <?php
 /**
  * @author         Pierre-Henry Soria <ph7software@gmail.com>
- * @copyright      (c) 2012-2017, Pierre-Henry Soria. All Rights Reserved.
+ * @copyright      (c) 2012-2018, Pierre-Henry Soria. All Rights Reserved.
  * @license        GNU General Public License; See PH7.LICENSE.txt and PH7.COPYRIGHT.txt in the root directory.
  * @package        PH7 / App / System / Module / Admin / From / Processing
  */
+
 namespace PH7;
+
 defined('PH7') or exit('Restricted access');
 
-use
-PH7\Framework\Mvc\Model\DbConfig,
-PH7\Framework\Ip\Ip,
-PH7\Framework\Mvc\Router\Uri,
-PH7\Framework\Url\Header,
-PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Ip\Ip;
+use PH7\Framework\Mvc\Model\DbConfig;
+use PH7\Framework\Mvc\Model\Security as SecurityModel;
+use PH7\Framework\Mvc\Request\Http as HttpRequest;
+use PH7\Framework\Mvc\Router\Uri;
+use PH7\Framework\Security\Security;
+use PH7\Framework\Url\Header;
 
-class LoginFormProcess extends Form
+class LoginFormProcess extends Form implements LoginableForm
 {
+    const BRUTE_FORCE_SLEEP_DELAY = 2;
+
+    /** @var AdminModel */
+    private $oAdminModel;
+
     public function __construct()
     {
         parent::__construct();
 
         $sIp = Ip::get();
-        $oAdminModel = new AdminModel;
+        $this->oAdminModel = new AdminModel;
         $oSecurityModel = new SecurityModel;
 
         $sEmail = $this->httpRequest->post('mail');
         $sUsername = $this->httpRequest->post('username');
-        $sPassword = $this->httpRequest->post('password');
+        $sPassword = $this->httpRequest->post('password', HttpRequest::NO_CLEAN);
 
 
         /*** Security IP Login ***/
         $sIpLogin = DbConfig::getSetting('ipLogin');
 
         /*** Check if the connection is not locked ***/
-        $bIsLoginAttempt = (bool) DbConfig::getSetting('isAdminLoginAttempt');
-        $iMaxAttempts = (int) DbConfig::getSetting('maxAdminLoginAttempts');
-        $iTimeDelay = (int) DbConfig::getSetting('loginAdminAttemptTime');
+        $bIsLoginAttempt = (bool)DbConfig::getSetting('isAdminLoginAttempt');
+        $iMaxAttempts = (int)DbConfig::getSetting('maxAdminLoginAttempts');
+        $iTimeDelay = (int)DbConfig::getSetting('loginAdminAttemptTime');
 
-        if ($bIsLoginAttempt && !$oSecurityModel->checkLoginAttempt($iMaxAttempts, $iTimeDelay, $sEmail, $this->view, 'Admins'))
-        {
+        if ($bIsLoginAttempt && !$oSecurityModel->checkLoginAttempt($iMaxAttempts, $iTimeDelay, $sEmail, $this->view, DbTableName::ADMIN)) {
             \PFBC\Form::setError('form_admin_login', Form::loginAttemptsExceededMsg($iTimeDelay));
             return; // Stop execution of the method.
         }
 
         /*** Check Login ***/
-        $bIsLogged = $oAdminModel->adminLogin($sEmail, $sUsername, $sPassword);
+        $bIsLogged = $this->oAdminModel->adminLogin($sEmail, $sUsername, $sPassword);
         $bIpNotAllowed = !empty($sIpLogin) && $sIpLogin !== $sIp;
 
         if (!$bIsLogged || $bIpNotAllowed) // If the login is failed or if the IP address is not allowed
         {
-            sleep(2); // Security against brute-force attack to avoid drowning the server and the database
+            $this->preventBruteForce(self::BRUTE_FORCE_SLEEP_DELAY);
 
-            if (!$bIsLogged)
-            {
-                $oSecurityModel->addLoginLog($sEmail, $sUsername, $sPassword, 'Failed! Incorrect Email, Username or Password', 'Admins');
+            if (!$bIsLogged) {
+                $oSecurityModel->addLoginLog(
+                    $sEmail,
+                    $sUsername,
+                    $sPassword,
+                    'Failed! Incorrect Email, Username or Password',
+                    DbTableName::ADMIN
+                );
 
-                if ($bIsLoginAttempt)
-                    $oSecurityModel->addLoginAttempt('Admins');
+                if ($bIsLoginAttempt) {
+                    $oSecurityModel->addLoginAttempt(DbTableName::ADMIN);
+                }
 
                 $this->enableCaptcha();
                 \PFBC\Form::setError('form_admin_login', t('"Email", "Username" or "Password" is Incorrect'));
-            }
-            elseif ($bIpNotAllowed)
-            {
+            } elseif ($bIpNotAllowed) {
                 $this->enableCaptcha();
                 \PFBC\Form::setError('form_admin_login', t('Incorrect Login!'));
-                $oSecurityModel->addLoginLog($sEmail, $sUsername, $sPassword, 'Failed! Wrong IP address', 'Admins');
+                $oSecurityModel->addLoginLog(
+                    $sEmail,
+                    $sUsername,
+                    $sPassword,
+                    'Failed! Wrong IP address',
+                    DbTableName::ADMIN
+                );
             }
-        }
-        else
-        {
-            $oSecurityModel->clearLoginAttempts('Admins');
+        } else {
+            $oSecurityModel->clearLoginAttempts(DbTableName::ADMIN);
             $this->session->remove('captcha_admin_enabled');
-            $iId = $oAdminModel->getId($sEmail, null, 'Admins');
-            $oAdminData = $oAdminModel->readProfile($iId, 'Admins');
+            $iId = $this->oAdminModel->getId($sEmail, null, DbTableName::ADMIN);
+            $oAdminData = $this->oAdminModel->readProfile($iId, DbTableName::ADMIN);
+
+            $this->updatePwdHashIfNeeded($sPassword, $oAdminData->password, $sEmail);
 
             $o2FactorModel = new TwoFactorAuthCoreModel(PH7_ADMIN_MOD);
-            if ($o2FactorModel->isEnabled($iId))
-            {
+            if ($o2FactorModel->isEnabled($iId)) {
                 // Store the admin ID for 2FA
                 $this->session->set(TwoFactorAuthCore::PROFILE_ID_SESS_NAME, $iId);
 
-                Header::redirect(Uri::get('two-factor-auth', 'main', 'verificationcode', PH7_ADMIN_MOD));
-            }
-            else
-            {
-                (new AdminCore)->setAuth($oAdminData, $oAdminModel, $this->session, $oSecurityModel);
+                Header::redirect(
+                    Uri::get(
+                        'two-factor-auth', 'main', 'verificationcode', PH7_ADMIN_MOD
+                    )
+                );
+            } else {
+                (new AdminCore)->setAuth($oAdminData, $this->oAdminModel, $this->session, $oSecurityModel);
 
-                Header::redirect(Uri::get(PH7_ADMIN_MOD, 'main', 'index'), t('You are successfully logged in!'));
+                Header::redirect(
+                    Uri::get(PH7_ADMIN_MOD, 'main', 'index'),
+                    t('You are successfully logged in!')
+                );
             }
         }
     }
 
     /**
-     * Enable the Captcha on the login form.
-     *
-     * @return void
+     * {@inheritDoc}
      */
-    protected function enableCaptcha()
+    public function updatePwdHashIfNeeded($sPassword, $sUserPasswordHash, $sEmail)
     {
-        $this->session->set('captcha_admin_enabled',1);
+        if ($sNewPwdHash = Security::pwdNeedsRehash($sPassword, $sUserPasswordHash)) {
+            $this->oAdminModel->changePassword($sEmail, $sNewPwdHash, DbTableName::ADMIN);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function enableCaptcha()
+    {
+        $this->session->set('captcha_admin_enabled', 1);
     }
 }
